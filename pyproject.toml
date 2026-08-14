@@ -1,0 +1,87 @@
+[project]
+name = "ritmo"
+version = "0.1.0"
+description = "Coach de voz conversacional para runners de 5K a maratón"
+requires-python = ">=3.13"
+
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "sqlalchemy>=2.0",
+  "alembic>=1.14",
+  "psycopg[binary]>=3.2",
+  "pyyaml>=6.0",
+  "structlog>=24.4",
+  "prometheus-client>=0.21",
+  "httpx>=0.28",
+]
+
+# El cliente de streaming bidireccional de Bedrock se fija en la tarea A2,
+# leyendo el requirements.txt del ejemplo oficial de aws-samples en lugar de
+# adivinar el nombre del paquete. Ver docs/fases/fase-3-plan-de-implementacion.md
+[project.optional-dependencies]
+voice = []
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6.0",
+  "hypothesis>=6.112",
+  "mypy>=1.13",
+  "ruff>=0.7",
+  "poethepoet>=0.30",
+  "types-pyyaml>=6.0",
+]
+
+[tool.uv]
+package = false
+
+# ─── Corredor de tareas ────────────────────────────────────────────────
+# poe funciona igual en Windows y en Linux. El Makefile reenvía aquí.
+[tool.poe.tasks]
+dev        = "docker compose up --build"
+down       = "docker compose down"
+test       = "pytest packages apps -v"
+test-dom   = "pytest packages -v --cov=coach_domain --cov-fail-under=95"
+evals      = "python evals/run.py"
+fmt        = "ruff format ."
+purity     = "python scripts/check_domain_purity.py"
+deploy     = "bash infra/deploy.sh"
+
+[tool.poe.tasks.lint]
+sequence = [
+  { cmd = "ruff check ." },
+  { cmd = "ruff format --check ." },
+  { cmd = "mypy packages" },
+]
+
+[tool.poe.tasks.check]
+help     = "Todo lo que corre CI, en orden"
+sequence = ["lint", "purity", "test-dom", "test", "evals"]
+
+# ─── Herramientas ──────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["spikes", "apps/api/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+# El proyecto está documentado en español con tipografía correcta: rayas, comillas
+# angulares y guiones largos son intencionales, no caracteres confundibles.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["packages"]
+mypy_path = "packages"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["packages", "."]
+testpaths = ["packages/tests", "apps/api/tests"]
+filterwarnings = ["error::DeprecationWarning"]

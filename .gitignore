@@ -1,0 +1,38 @@
+# Entorno
+.env
+.env.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+uv.lock
+
+# Node
+node_modules/
+apps/web/dist/
+apps/web/.vite/
+
+# Docker
+pgdata/
+n8ndata/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Spikes: código desechable de exploración (ver tarea A2)
+spikes/**/venv/
+spikes/**/__pycache__/
+
+# Artefactos locales
+*.log
+/tmp/

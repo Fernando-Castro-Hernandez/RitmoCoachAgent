@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.13
+      - run: uv sync --all-groups
+
+      - name: Estilo y tipos
+        run: uv run poe lint
+
+      # La arquitectura protegida por el pipeline: si alguien mete red, base de
+      # datos o SDK de nube dentro del motor de dominio, el build falla.
+      - name: Pureza del dominio
+        run: uv run poe purity
+
+      - name: Motor de dominio (cobertura mínima 95 %)
+        run: uv run poe test-dom
+
+      - name: Suite completa
+        run: uv run poe test
+
+      # Bloquea la entrega si el sistema deja de detectar una bandera roja.
+      - name: Evaluaciones golden
+        run: uv run poe evals
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+        working-directory: apps/web
+      - run: npm run lint
+        working-directory: apps/web
+      - run: npm test
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar que la imagen de la API compila
+        run: docker build -f infra/Dockerfile.api -t ritmo-api:ci .

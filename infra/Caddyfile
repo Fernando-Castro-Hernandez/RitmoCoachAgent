@@ -1,0 +1,40 @@
+# En local SITE_ADDRESS=localhost. El navegador trata localhost como contexto
+# seguro, así que getUserMedia funciona sin certificado.
+#
+# En producción SITE_ADDRESS es el dominio real y Caddy emite y renueva el
+# certificado de Let's Encrypt automáticamente. Ver ADR 0008.
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# WebSocket de voz. Sin timeout de lectura: la conexión es de larga vida
+	# y se renueva cada 8 minutos del lado de la aplicación, no del proxy.
+	handle /ws/* {
+		reverse_proxy api:8000 {
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle /metrics {
+		reverse_proxy api:8000
+	}
+
+	# Aplicación web: SPA con historial del lado del cliente.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
