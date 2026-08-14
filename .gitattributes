@@ -1,0 +1,19 @@
+# Normaliza los finales de línea. Se desarrolla en Windows y se despliega en
+# Linux: un script de shell con CRLF falla en el EC2 con «bad interpreter».
+* text=auto eol=lf
+
+# Archivos que DEBEN tener LF sí o sí.
+*.sh        text eol=lf
+*.py        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+Dockerfile* text eol=lf
+Caddyfile   text eol=lf
+Makefile    text eol=lf
+
+# Binarios: que git no los toque.
+*.png binary
+*.jpg binary
+*.gif binary
+*.mp4 binary
+*.ico binary
