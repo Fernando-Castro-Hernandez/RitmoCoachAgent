@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # solapamiento, para que el usuario no perciba el corte (tarea A4).
     session_renew_after_s: int = 450
 
+    # Ruta de visión (ADR 0014). Modelo distinto y protocolo distinto: Nova 2
+    # Sonic sólo acepta SPEECH, así que no puede leer una imagen.
+    # El prefijo «us.» no es opcional: Nova 2 Lite no admite invocación directa
+    # («on-demand throughput isn't supported»), sólo a través de un perfil de
+    # inferencia entre regiones. Verificado con list-inference-profiles.
+    vision_model_id: str = "us.amazon.nova-2-lite-v1:0"
+    vision_fallback_model_id: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
     database_url: str = "postgresql+psycopg://ritmo:ritmo@localhost:5432/ritmo"
     bedrock_guardrail_id: str = ""
     bedrock_guardrail_version: str = "DRAFT"

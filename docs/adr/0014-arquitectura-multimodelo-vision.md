@@ -138,6 +138,82 @@ decir lo contrario sería el mismo error que criticamos en el ADR 0010.
 Y sigue sin diagnosticar: si algo en el vídeo sugiere lesión, el resultado no es un
 nombre clínico, es *«esto merece que lo revise alguien»*.
 
+## Lo que apareció al conectarlo de verdad
+
+Tres cosas que la documentación no dice y que sólo salieron ejecutando contra la
+cuenta. Van aquí por la misma razón que las cinco reglas no documentadas del ADR
+0002: son las que le cuestan una tarde a quien venga después.
+
+### 1 · Nova 2 Lite no se invoca por su identificador
+
+```console
+$ # con modelId = amazon.nova-2-lite-v1:0
+ValidationException: Invocation of model ID amazon.nova-2-lite-v1:0 with
+on-demand throughput isn't supported. Retry your request with the ID or ARN
+of an inference profile that contains this model.
+```
+
+Hay que usar un **perfil de inferencia entre regiones**, y el prefijo no es
+opcional:
+
+```console
+$ aws bedrock list-inference-profiles --region us-east-1
+us.amazon.nova-2-lite-v1:0                      ACTIVE
+global.amazon.nova-2-lite-v1:0                  ACTIVE
+us.anthropic.claude-haiku-4-5-20251001-v1:0     ACTIVE
+```
+
+`VISION_MODEL_ID` es ahora `us.amazon.nova-2-lite-v1:0`. Detalle con
+consecuencias de arquitectura: el perfil `us.` enruta la petición a cualquier
+región de Estados Unidos, así que **la co-ubicación con la instancia EC2 del ADR
+0008 no está garantizada para la ruta de visión**. Se acepta: esta ruta tiene un
+presupuesto de latencia de segundos, no de milisegundos, y el usuario está
+mirando una barra de progreso. Para la voz, que sí es sensible, Nova Sonic se
+sigue invocando directamente contra `us-east-1`.
+
+### 2 · La cuota que no afectaba a la voz sí afecta a la visión
+
+```console
+ThrottlingException: Too many tokens per day, please wait before trying again.
+```
+
+El ADR 0002 documentó que las cuotas de esta cuenta figuraban en `0.0` y que aun
+así el stream de voz abría sin problema, y de ahí salió la lección de que *«una
+cuota publicada no es una prueba»*. Ahora se ve la otra mitad: **ese mismo cero
+sí gobierna a los modelos de texto y visión.**
+
+```console
+$ aws service-quotas list-service-quotas --service-code bedrock --region us-east-1
+Model invocation max tokens per day for Amazon Nova 2 Lite    0.0
+```
+
+La lección se afina: la cuota no es una prueba **en ninguna dirección**. Un cero
+no demuestra que algo esté bloqueado ni que esté abierto. Sólo la llamada real
+lo dice, y hay que hacerla por cada ruta.
+
+### 3 · Los modelos de Anthropic exigen un formulario previo
+
+```console
+ResourceNotFoundException: Model use case details have not been submitted for
+this account. Fill out the Anthropic use case details form before using the
+model.
+```
+
+Es un trámite único en la consola de Bedrock, no un problema de permisos ni de
+cuota. Queda anotado como paso manual de despliegue.
+
+### Consecuencia de diseño: respaldo entre modelos
+
+Los dos fallos son transitorios y de causas distintas, así que la ruta de visión
+usa un `FallbackVisionClient`: intenta con el principal y cae al de respaldo si
+el error es recuperable —throttling, formulario pendiente, modelo no listo— y
+propaga el error si no lo es. Un formato de imagen inválido fallaría igual en
+los dos modelos, y reintentarlo sólo duplicaría la espera del usuario.
+
+No es sobreingeniería defensiva: los dos modos de fallo se encontraron
+verificando, no imaginando. Que la ruta se degrade en vez de caerse es la
+diferencia entre una demo que sobrevive al lunes y una que no.
+
 ## Alternativas descartadas
 
 | Alternativa | Por qué no |

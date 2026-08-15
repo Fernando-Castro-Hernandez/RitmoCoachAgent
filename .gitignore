@@ -40,3 +40,6 @@ spikes/**/__pycache__/
 
 # Base temporal para autogenerar migraciones de Alembic
 .tmp-autogen.db
+
+# Captura sintética que genera spikes/vision_check.py
+spikes/captura_sintetica.png
