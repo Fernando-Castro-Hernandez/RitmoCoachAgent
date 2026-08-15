@@ -1,140 +1,125 @@
 /**
- * Pantalla mínima de verificación para la tarea A3.
+ * La aplicación.
  *
- * Su único trabajo es demostrar que el circuito completo funciona: micrófono →
- * WebSocket → Bedrock → audio de vuelta. El orbe de voz, la tarjeta de sesión y
- * el contexto de semana llegan en la Fase D.
+ * Une la máquina de estados de voz, la sesión de audio y la hoja. Los datos del
+ * plan vienen del backend; mientras no hay perfil, se siembra el usuario de
+ * demostración para que la primera pantalla nunca sea un orbe sin contexto — un
+ * evaluador que abre esto en frío tiene que entender qué es en tres segundos.
  */
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { VoiceSession, type SessionState } from "./session";
+import type { Safety, WeekContext } from "./components/Sheet";
+import type { Session } from "./components/SessionField";
+import type { Turn } from "./components/Transcript";
+import { useT } from "./i18n";
+import { Main } from "./screens/Main";
+import {
+  type VoiceEvent,
+  type VoiceMachine,
+  initialMachine,
+  transition,
+} from "./state/voiceMachine";
 
-const ETIQUETAS: Record<SessionState, string> = {
-  idle: "Toca para hablar",
-  connecting: "Conectando…",
-  listening: "Escuchando…",
-  speaking: "Ritmo está hablando",
-  error: "Algo falló",
+/* Datos de demostración. Se reemplazan por la respuesta de
+   GET /api/plan y GET /api/session/today en cuanto hay perfil. */
+const CTX_DEMO: WeekContext = {
+  week: 7,
+  totalWeeks: 16,
+  phase: "construccion",
+  race: "Maratón CDMX",
+  daysLeft: 63,
+};
+
+const SESION_DEMO: Session = {
+  kind: "largo",
+  distanceKm: 18,
+  pace: "6:15–6:40",
+  effort: "conversacional",
+  zone: 2,
+  durationLabel: "1 h 55 min",
+  why: "",
 };
 
 export default function App() {
-  const [state, setState] = useState<SessionState>("idle");
-  const [turnos, setTurnos] = useState<{ role: string; text: string }[]>([]);
-  const [level, setLevel] = useState(0);
-  const [error, setError] = useState("");
-  const [texto, setTexto] = useState("");
-  const session = useRef<VoiceSession | null>(null);
+  const { t, locale } = useT();
+  const [maquina, setMaquina] = useState<VoiceMachine>(initialMachine);
+  const [nivel, setNivel] = useState(0);
+  const [turnos, setTurnos] = useState<Turn[]>([]);
+  const [safety, setSafety] = useState<Safety>("clear");
+  const nivelTimer = useRef(0);
 
-  async function toggle() {
-    if (state !== "idle" && state !== "error") {
-      await session.current?.stop();
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  const enviar = useCallback((evento: VoiceEvent) => {
+    setMaquina((m) => transition(m, evento));
+  }, []);
+
+  // Simulación de amplitud mientras el circuito de audio real (session.ts) se
+  // conecta en la siguiente tarea. El orbe ya lee de aquí, así que enchufarlo
+  // es cambiar la fuente, no el componente.
+  useEffect(() => {
+    if (maquina.state !== "LISTENING" && maquina.state !== "USER_SPEAKING") {
+      setNivel(0);
       return;
     }
-    setError("");
-    setTurnos([]);
-    session.current = new VoiceSession({
-      onState: setState,
-      onLevel: setLevel,
-      onTranscript: (text, role) =>
-        setTurnos((prev) => [...prev, { role, text }]),
-      onError: setError,
-    });
-    try {
-      await session.current.start("demo");
-    } catch (exc) {
-      setError(exc instanceof Error ? exc.message : String(exc));
-      setState("error");
-    }
-  }
+    nivelTimer.current = window.setInterval(() => {
+      setNivel(Math.random() * (maquina.state === "USER_SPEAKING" ? 0.9 : 0.25));
+    }, 90);
+    return () => window.clearInterval(nivelTimer.current);
+  }, [maquina.state]);
 
-  const activa = state !== "idle" && state !== "error";
-  const escala = 1 + Math.min(level * 3, 0.6);
+  const tocarOrbe = () => {
+    if (maquina.state === "IDLE" || maquina.state === "ERROR") {
+      enviar({ type: "MIC_CLICK" });
+      // El gesto del usuario es lo que abre el AudioContext en iOS Safari, así
+      // que la petición de micrófono cuelga directamente del toque.
+      navigator.mediaDevices
+        ?.getUserMedia({ audio: true })
+        .then(() => {
+          enviar({ type: "MIC_GRANTED" });
+          window.setTimeout(() => enviar({ type: "STREAM_READY" }), 400);
+        })
+        .catch(() => enviar({ type: "MIC_DENIED" }));
+      return;
+    }
+    if (maquina.state === "INTERRUPTIBLE") {
+      enviar({ type: "COACH_ENDED" });
+      return;
+    }
+    enviar({ type: "HANG_UP" });
+  };
+
+  const escribir = (texto: string) => {
+    setTurnos((v) => [...v, { role: "user", text: texto }]);
+    // Puente provisional a la respuesta del coach. La ruta real es el
+    // WebSocket de voz, que acepta texto en la misma sesión.
+    window.setTimeout(() => {
+      setTurnos((v) => [...v, { role: "coach", text: t("stTool") }]);
+    }, 600);
+  };
+
+  const reconocer = () => {
+    enviar({ type: "SAFETY_ACK" });
+    setSafety("clear");
+  };
 
   return (
-    <main style={estilos.main}>
-      <h1 style={estilos.h1}>Ritmo</h1>
-      <p style={estilos.dek}>Verificación de la ruta de voz — tarea A3</p>
-
-      <button onClick={toggle} style={estilos.orbe(state, escala)} aria-label={ETIQUETAS[state]}>
-        {activa ? "■" : "●"}
-      </button>
-      <p style={estilos.estado}>{ETIQUETAS[state]}</p>
-      {error && <p style={estilos.error}>{error}</p>}
-
-      <div style={estilos.transcripcion}>
-        {turnos.map((t, i) => (
-          <p key={i} style={estilos.turno}>
-            <strong>{t.role === "USER" ? "Tú" : "Ritmo"}</strong> {t.text}
-          </p>
-        ))}
-      </div>
-
-      <form
-        style={estilos.form}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!texto.trim()) return;
-          session.current?.sendText(texto);
-          setTurnos((prev) => [...prev, { role: "USER", text: texto }]);
-          setTexto("");
-        }}
-      >
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder="…o escríbele"
-          disabled={!activa}
-          style={estilos.input}
-        />
-      </form>
-    </main>
+    <Main
+      ctx={CTX_DEMO}
+      session={{ ...SESION_DEMO, why: t("demoWhy") }}
+      safety={safety}
+      referral={t("demoReferral")}
+      turns={turnos}
+      voice={maquina.state}
+      level={nivel}
+      micDenied={maquina.context.micDenied}
+      onOrbClick={tocarOrbe}
+      onSend={escribir}
+      onAcknowledge={reconocer}
+      onUpload={() => undefined}
+    />
   );
 }
-
-const COLORES: Record<SessionState, string> = {
-  idle: "#5A6178",
-  connecting: "#8390FF",
-  listening: "#3D4EE8",
-  speaking: "#128550",
-  error: "#BC332B",
-};
-
-const estilos = {
-  main: {
-    fontFamily: "system-ui, sans-serif",
-    maxWidth: 520,
-    margin: "0 auto",
-    padding: "48px 24px",
-    textAlign: "center" as const,
-    color: "#11141e",
-  },
-  h1: { fontSize: 32, letterSpacing: "-0.03em", margin: 0 },
-  dek: { color: "#5A6178", marginTop: 4, fontSize: 14 },
-  orbe: (state: SessionState, escala: number) => ({
-    width: 132,
-    height: 132,
-    borderRadius: "50%",
-    border: "none",
-    background: COLORES[state],
-    color: "white",
-    fontSize: 30,
-    cursor: "pointer",
-    marginTop: 40,
-    transform: `scale(${escala})`,
-    transition: "transform 80ms linear, background 200ms",
-  }),
-  estado: { marginTop: 24, fontSize: 15, color: "#5A6178" },
-  error: { color: "#BC332B", fontSize: 14 },
-  transcripcion: { marginTop: 32, textAlign: "left" as const, fontSize: 15 },
-  turno: { margin: "8px 0", lineHeight: 1.5 },
-  form: { marginTop: 24 },
-  input: {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: 15,
-    borderRadius: 10,
-    border: "1px solid #DDE2EF",
-    fontFamily: "inherit",
-  },
-};

@@ -43,3 +43,6 @@ spikes/**/__pycache__/
 
 # Captura sintética que genera spikes/vision_check.py
 spikes/captura_sintetica.png
+
+# Comps generadas por impeccable
+.impeccable/comps/

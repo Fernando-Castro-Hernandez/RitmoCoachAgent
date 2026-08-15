@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* ─────────────────────────────────────────────────────────────────────
+   HOJA DE VALORACIÓN — sistema de tintas
+
+   Juego cerrado, disciplina donada por el campo de dieciséis colores: hay
+   cinco tintas y nada más. Todo gris es una TRAMA de tinta sobre papel
+   (--ink-NN), nunca un gris elegido a mano. Si un tono no sale de aquí, no
+   existe en el producto.
+
+   El azul es a la vez acento y control, disciplina donada por la capa de
+   cordón: aparece donde el sistema está vivo o donde puedes actuar, jamás de
+   adorno.
+
+   Verde, ámbar y rojo son un sistema de codificación con clave visible,
+   disciplina donada por el jardín de lluvia: no decoran, informan.
+   ───────────────────────────────────────────────────────────────────── */
+
+@theme {
+  --color-paper: #f2f3f1;
+  --color-paper-edge: #e7e9e5;
+  --color-ink: #14161a;
+  --color-proof: #1b4fd8;
+  --color-proof-deep: #1439a3;
+  --color-flag: #c8102e;
+  --color-caution: #b26b00;
+  --color-clear: #1f7a4d;
+
+  /* Tramas de tinta sobre papel. Porcentajes de cobertura, como en offset. */
+  --color-ink-70: #4d5057;
+  --color-ink-50: #7c7f85;
+  --color-ink-30: #a9acb1;
+  --color-ink-15: #cbcdd0;
+  --color-ink-08: #dfe0e1;
+
+  --font-form: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-figure: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --text-figure: clamp(5.5rem, 26vw, 9rem);
+  --text-figure--line-height: 0.82;
+
+  --tracking-label: 0.14em;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Las superficies que no dibujamos también llevan el diseño. */
+    accent-color: var(--color-proof);
+    caret-color: var(--color-proof);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-form);
+    /* Grano de offset: una trama finísima, no una textura de stock. */
+    background-image: radial-gradient(var(--color-ink-08) 0.5px, transparent 0.5px);
+    background-size: 3px 3px;
+    overscroll-behavior-y: none;
+  }
+
+  ::selection {
+    background: var(--color-proof);
+    color: var(--color-paper);
+  }
+
+  /* Toda cifra es tabular. En un documento, las columnas se alinean. */
+  :is(output, data, time, .fig) {
+    font-family: var(--font-figure);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-proof);
+    outline-offset: 2px;
+  }
+
+  /* El scrollbar es una guía de encuadernación, no un default del navegador. */
+  @supports (scrollbar-width: thin) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-ink-30) transparent;
+    }
+  }
+}
+
+@layer components {
+  /* Etiqueta de campo de formulario: nombra el dato, no adorna un titular. */
+  .label {
+    font-family: var(--font-figure);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--color-ink-70);
+  }
+
+  .label-on-proof {
+    color: color-mix(in oklab, var(--color-paper) 78%, var(--color-proof));
+  }
+
+  /* Regla impresa. El pelo es 1px físico, no un borde de tarjeta. */
+  .rule {
+    border-color: var(--color-ink-15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* El sello cae, rebota apenas y se asienta. Es el único momento coreografiado
+   de la interfaz: la anulación tiene que sentirse como algo que ocurre, no como
+   un estado que ya estaba ahí. */
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: rotate(-9deg) scale(2.4);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-9deg) scale(1);
+  }
+}
