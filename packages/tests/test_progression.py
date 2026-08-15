@@ -214,6 +214,21 @@ def test_r5_subir_solo_la_intensidad_esta_bien() -> None:
     )
 
 
+def test_r5_no_aplica_al_volver_de_una_descarga() -> None:
+    """Volver al punto de partida no es un estímulo nuevo.
+
+    La descarga baja volumen y retira calidad, así que la semana siguiente sube
+    las dos cosas por definición. Marcarlo como infracción castigaría el
+    funcionamiento normal del plan. Quien controla ese regreso es R1, que mide
+    contra la semana de descarga y es más conservador.
+    """
+    descarga = _semana(index=4, total_km=28.0, quality_sessions=0, is_deload=True)
+    vuelta = _semana(index=5, total_km=30.2, quality_sessions=2)
+    assert not any(
+        p.rule == "R5" for p in validate_week(vuelta, descarga, RaceDistance.K21, Level.INTERMEDIO)
+    )
+
+
 def test_r5_no_aplica_en_semana_de_descarga() -> None:
     """En descarga el volumen baja, así que no hay dos variables subiendo."""
     previa = _semana(index=3, total_km=40.0, quality_sessions=1)

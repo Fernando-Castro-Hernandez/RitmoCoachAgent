@@ -72,6 +72,10 @@ class WeekLoad:
     # mano puede no declararlo, y sin el dato R4 se calla en vez de inventar un
     # veredicto. `build_plan` siempre lo declara.
     easy_km: float | None = None
+    # Semana de afinamiento previa a la carrera. El taper baja el volumen por
+    # diseño y con su propia curva, así que sustituye a la cadencia de descargas
+    # de R2 en lugar de convivir con ella.
+    is_taper: bool = False
 
 
 @dataclass(frozen=True)
@@ -182,6 +186,24 @@ def environment_advice(temp_c: float, aqi: int | None = None) -> EnvironmentAdvi
 # ── validación de una semana ─────────────────────────────────────────
 
 
+def previous_reference(weeks: list[WeekLoad], index: int) -> WeekLoad | None:
+    """La semana contra la que se compara la que está en `index`.
+
+    No es simplemente la anterior. Una semana de descarga o de taper baja el
+    volumen a propósito, así que medir la progresión contra ella daría dos
+    lecturas falsas seguidas: primero un salto enorme al recuperar el nivel, y
+    después un techo artificialmente bajo. La referencia correcta es la última
+    semana de carga normal.
+
+    Con esto R1 conserva su sentido —«no subas más del tope respecto a donde
+    venías»— en vez de castigar el funcionamiento normal del plan.
+    """
+    for anterior in reversed(weeks[:index]):
+        if not anterior.is_deload and not anterior.is_taper:
+            return anterior
+    return None
+
+
 def validate_week(
     week: WeekLoad,
     previous: WeekLoad | None,
@@ -189,6 +211,9 @@ def validate_week(
     level: Level,
 ) -> list[Violation]:
     """Devuelve todas las reglas que la semana incumple. Vacío es legal.
+
+    `previous` es la **semana de referencia**, no necesariamente la inmediata
+    anterior: ver `previous_reference`.
 
     Devuelve la lista completa y no la primera violación: si una semana rompe
     dos reglas, arreglar una y volver a fallar es una pérdida de tiempo para
@@ -198,12 +223,14 @@ def validate_week(
     tope_pct = max_increase(distance, level)
 
     # R2 · la descarga no es negociable, ni siquiera a petición del usuario.
-    toca_descarga = is_deload_week(week.index, distance)
+    # El taper es la excepción: ya está bajando el volumen con su propia curva,
+    # y exigirle además el −30 % de una descarga lo convertiría en reposo.
+    toca_descarga = is_deload_week(week.index, distance) and not week.is_taper
     if toca_descarga and not week.is_deload:
         problemas.append(
             Violation("R2", f"la semana {week.index} tiene que ser de descarga y no lo es")
         )
-    if week.is_deload and previous is not None:
+    if week.is_deload and not week.is_taper and previous is not None:
         techo_descarga = previous.total_km * (1 - DELOAD_PCT) + _KM_EPS
         if week.total_km > techo_descarga:
             problemas.append(
@@ -250,7 +277,14 @@ def validate_week(
             )
 
     # R5 · dos estímulos nuevos a la vez es cómo se acumula fatiga sin notarlo.
-    if previous is not None and not week.is_deload:
+    #
+    # No aplica después de una descarga. La semana de descarga baja el volumen y
+    # retira la calidad, así que la siguiente sube las dos cosas por definición;
+    # comparar contra esa base artificialmente baja marcaría como infracción lo
+    # que en realidad es volver al punto de partida, no un estímulo nuevo. Quien
+    # sí controla que ese regreso sea moderado es R1, que mide contra la semana
+    # de descarga y por tanto es más conservador todavía.
+    if previous is not None and not week.is_deload and not previous.is_deload:
         sube_volumen = week.total_km > previous.total_km + _KM_EPS
         sube_calidad = week.quality_sessions > previous.quality_sessions
         if sube_volumen and sube_calidad:
