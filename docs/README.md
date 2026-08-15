@@ -10,6 +10,7 @@ Coach de voz conversacional para runners. Reto técnico de Adivor.
 | 1 | [Alcance y viabilidad](fases/fase-1-alcance-y-viabilidad.html) | Investigación de Adivor y mercado, reglas de dominio, interfaz, dictamen de stack y despliegue |
 | 2 | [Investigación de usuario](fases/fase-2-investigacion-usuario.md) | Entrevista a corredor experimentado, la pirámide y reajuste de alcance |
 | 3 | [Plan de implementación](fases/fase-3-plan-de-implementacion.md) | Seis fases de ejecución, tarea por tarea, viernes a lunes |
+| — | [Prompts del sistema](prompts.md) | Las cuatro capas del prompt, la regla de clarificación autónoma y cómo se verifica |
 
 La Fase 1 es un documento HTML: ábrelo en el navegador o consulta la
 [versión publicada](https://claude.ai/code/artifact/85cb6fa3-e64b-4037-a117-a3202dbc1474).
@@ -30,6 +31,8 @@ La Fase 1 es un documento HTML: ábrelo en el navegador o consulta la
 | [0010](adr/0010-fuera-de-alcance-gps-y-tracking.md) | Sin rastreo GPS | Aceptada |
 | [0011](adr/0011-modulo-de-tecnica-de-carrera.md) | Módulo de técnica de carrera | Aceptada |
 | [0012](adr/0012-observabilidad-y-metricas.md) | Observabilidad, métricas y DevOps | Aceptada |
+| [0013](adr/0013-guardrails-fuera-de-la-ruta-de-voz.md) | Guardrails de Bedrock fuera de la ruta de voz | Aceptada |
+| [0014](adr/0014-arquitectura-multimodelo-vision.md) | Arquitectura multimodelo: visión por REST, voz por streaming | Aceptada |
 
 ## La tesis en un párrafo
 
@@ -40,3 +43,8 @@ novato rara vez se conoce tan bien como cree**. Un formulario captura lo que el
 corredor afirma; una conversación captura lo que revela. Por eso la voz no es adorno.
 Y por eso el LLM nunca calcula un plan: la aritmética vive en un motor determinista y
 verificable, y el modelo sólo escucha, consulta y explica.
+
+Y por eso el coach **se niega a generar un plan cuando le falta contexto**: pregunta
+antes de prescribir, incluso si el corredor insiste en que no le pregunten. Los datos
+duros llegan por formulario, los matices por voz, y los entrenamientos por una foto de
+la pantalla del reloj —sin OAuth, sin Garmin, sin Strava (ADR 0014).
