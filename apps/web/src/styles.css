@@ -6,10 +6,20 @@
 /* ─────────────────────────────────────────────────────────────────────
    HOJA DE VALORACIÓN — sistema de tintas
 
-   Juego cerrado, disciplina donada por el campo de dieciséis colores: hay
-   cinco tintas y nada más. Todo gris es una TRAMA de tinta sobre papel
-   (--ink-NN), nunca un gris elegido a mano. Si un tono no sale de aquí, no
-   existe en el producto.
+   Juego cerrado, disciplina donada por el campo de dieciséis colores. Dos
+   grupos y nada más. Todo gris es una TRAMA de tinta sobre papel (--ink-NN),
+   nunca un gris elegido a mano.
+
+   1 · TINTAS DEL DOCUMENTO — papel, tinta y azul de proceso. Es todo lo que
+       usa la hoja para existir.
+   2 · TINTAS DE SEÑAL — verde, ámbar y rojo. Son un subconjunto aparte y con
+       motivo: el código de seguridad necesita tres señales distinguibles entre
+       sí, y reutilizar el azul para «puedes entrenar» lo pondría a competir con
+       su otro trabajo, que es marcar dónde puedes actuar. Un tríptico de
+       seguridad con dos colores no es un código, es una ambigüedad.
+
+   Ninguna tinta de señal aparece fuera del código de seguridad. En particular
+   NO se usan en el orbe: el orbe es un control, y los controles son azules.
 
    El azul es a la vez acento y control, disciplina donada por la capa de
    cordón: aparece donde el sistema está vivo o donde puedes actuar, jamás de
@@ -142,5 +152,30 @@
   to {
     opacity: 1;
     transform: rotate(-9deg) scale(1);
+  }
+}
+
+
+/* Las superficies que no dibujamos también llevan el diseño. El selector de
+   fecha nativo llega con la tipografía y el glifo de calendario del sistema, y
+   está en la primera pantalla que ve alguien que llega en frío. */
+@layer base {
+  input[type="date"],
+  input[type="time"] {
+    font-family: var(--font-figure);
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    /* El glifo del sistema se sustituye por una casilla de formulario, dibujada
+       en la gramática de la hoja: cuadro de pelo con una regla dentro. */
+    cursor: pointer;
+    opacity: 1;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2314161A' stroke-width='1'><rect x='1.5' y='2.5' width='13' height='12'/><path d='M1.5 6h13M5 1v3M11 1v3M4 9h3M4 11.5h6'/></svg>");
+  }
+
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
   }
 }

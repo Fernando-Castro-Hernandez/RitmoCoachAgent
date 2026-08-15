@@ -130,9 +130,21 @@ export function Upload({ userId, onClose, onSave }: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="label transition-colors hover:text-ink"
+          className="label flex items-center gap-1.5 transition-colors hover:text-ink"
         >
-          ← {t("cancel")}
+          {/* Icono dibujado, no un glifo Unicode: un carácter tipográfico
+              hereda la métrica de la fuente y no la del sistema de iconos. */}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 16 16"
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+          >
+            <path d="M10 2 4 8l6 6" />
+          </svg>
+          {t("cancel")}
         </button>
         <h1 className="text-center text-[0.9375rem] font-semibold">
           {fase === "manual" ? t("manualTitle") : t("uploadTitle")}
@@ -142,27 +154,49 @@ export function Upload({ userId, onClose, onSave }: Props) {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {fase === "elegir" && (
-          <div className="px-4 py-10">
-            <div className="border border-dashed border-ink-30 px-6 py-14 text-center">
+          <>
+            {/* El estado vacío lleva la gramática de la hoja: campos reglados
+                esperando su valor. Un rectángulo punteado sobre papel en blanco
+                era una página de subida genérica con el fondo del producto. */}
+            <div className="divide-y divide-ink-15 border-b border-ink-15">
+              {[t("distance"), t("duration"), t("heartRate")].map((etiqueta) => (
+                <div key={etiqueta} className="px-4 py-3">
+                  <span className="label">{etiqueta}</span>
+                  <div className="mt-1 flex items-baseline gap-2 border-b border-ink-15">
+                    <span className="fig py-2 text-2xl text-ink-30" aria-hidden="true">
+                      —
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-4 py-8">
               <p className="text-[0.9375rem] text-ink-70">
-                {t("uploadTitle")} — Garmin, Strava, Apple Watch, el que sea.
+                Garmin, Strava, Apple Watch, Coros — el que sea. Con que tenga
+                pantalla, sirve.
               </p>
               <button
                 type="button"
                 onClick={() => archivo.current?.click()}
-                className="mt-6 min-h-12 bg-proof px-6 text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep"
+                className="mt-5 min-h-13 w-full bg-proof px-6 text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep"
               >
                 {t("uploadCta")}
               </button>
+              <button
+                type="button"
+                onClick={() => setFase("manual")}
+                className="label mt-3 w-full border border-ink-15 py-3 text-center transition-colors hover:border-ink"
+              >
+                {t("manualTitle")}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setFase("manual")}
-              className="label mt-6 w-full py-3 text-center underline underline-offset-4"
-            >
-              {t("manualTitle")}
-            </button>
-          </div>
+
+            <div className="flex items-center justify-between border-t border-ink-15 px-4 py-3">
+              <span className="label">RIT-09</span>
+              <RegistrationMark />
+            </div>
+          </>
         )}
 
         {fase === "leyendo" && (
@@ -250,7 +284,7 @@ export function Upload({ userId, onClose, onSave }: Props) {
               if (ritmo === null) return;
               onSave({ distanceKm: kmNum, durationSec: segNum!, paceSecPerKm: ritmo });
             }}
-            className="min-h-14 w-full bg-proof text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:bg-ink-15 disabled:text-ink-50"
+            className="min-h-14 w-full bg-proof text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:bg-ink-08 disabled:text-ink-70"
           >
             {t("save")}
           </button>

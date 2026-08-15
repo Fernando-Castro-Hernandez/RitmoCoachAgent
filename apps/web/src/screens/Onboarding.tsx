@@ -308,7 +308,7 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
           type="button"
           onClick={avanzar}
           disabled={!puedeAvanzar || guardando}
-          className="ml-auto min-h-14 flex-1 bg-proof px-5 text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:bg-ink-15 disabled:text-ink-50"
+          className="ml-auto min-h-14 flex-1 bg-proof px-5 text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:bg-ink-08 disabled:text-ink-70"
         >
           {guardando ? "…" : ultimo ? t("finish") : t("next")}
         </button>

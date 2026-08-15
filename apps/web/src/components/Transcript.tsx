@@ -51,7 +51,7 @@ export function Transcript({ turns }: { turns: Turn[] }) {
           </div>
           <p
             className={`px-4 py-3 text-[0.9375rem] leading-relaxed ${
-              turno.partial ? "text-ink-50" : "text-ink"
+              turno.partial ? "text-ink-70 italic" : "text-ink"
             }`}
           >
             {turno.text}

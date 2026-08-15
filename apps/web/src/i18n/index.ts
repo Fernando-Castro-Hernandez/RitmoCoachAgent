@@ -19,6 +19,9 @@ export type Locale = (typeof LOCALES)[number];
 
 const es = {
   formCode: "FORMULARIO RIT-07",
+  formCodeDemo: "FORMULARIO RIT-07 · MUESTRA",
+  specimen: "MUESTRA",
+  specimenWhy: "Datos de ejemplo. Tu plan aparece aquí en cuanto el motor lo genere.",
   brand: "Ritmo",
 
   week: "Semana",
@@ -137,6 +140,9 @@ type Dict = Record<keyof typeof es, string>;
 
 const en: Dict = {
   formCode: "FORM RIT-07",
+  formCodeDemo: "FORM RIT-07 · SPECIMEN",
+  specimen: "SPECIMEN",
+  specimenWhy: "Example data. Your plan appears here as soon as the engine generates it.",
   brand: "Ritmo",
 
   week: "Week",

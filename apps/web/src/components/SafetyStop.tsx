@@ -57,15 +57,37 @@ export function SafetyStop({
   return (
     <section aria-live="assertive">
       {/* El campo vacío donde iba la sesión, con el sello encima. */}
-      <div className="relative border-b border-ink-15 px-4 py-14">
+      <div className="relative overflow-hidden border-b border-ink-15 px-4 py-14">
         <div aria-hidden="true" className="space-y-7">
           <hr className="border-0 border-t border-ink-15" />
           <hr className="border-0 border-t border-ink-15" />
           <hr className="border-0 border-t border-ink-15" />
         </div>
 
+        {/* Un sello de hule no imprime parejo: salta, se rompe y carga más
+            tinta en un borde. Una turbulencia SVG desplaza el trazo y una
+            máscara de ruido se come parte de la tinta. Sin esto, el momento más
+            importante del producto se ve como tipografía vectorial limpia. */}
+        <svg aria-hidden="true" className="absolute h-0 w-0">
+          <filter id="hule">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" />
+            <feDisplacementMap in="SourceGraphic" scale="2.4" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <filter id="hule-gastado">
+            <feTurbulence type="fractalNoise" baseFrequency="0.05 0.34" numOctaves="4" seed="3" />
+            <feColorMatrix
+              type="matrix"
+              values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.7 1.05"
+            />
+            <feComposite in="SourceGraphic" operator="in" />
+          </filter>
+        </svg>
+
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="animate-[stamp_260ms_cubic-bezier(0.16,1,0.3,1)_both] -rotate-[9deg] border-[3px] border-flag px-6 py-2 text-3xl font-bold tracking-[0.18em] text-flag">
+          <p
+            style={{ filter: "url(#hule) url(#hule-gastado)" }}
+            className="animate-[stamp_260ms_cubic-bezier(0.16,1,0.3,1)_both] -rotate-[9deg] border-[3px] border-flag px-6 py-2 text-3xl font-bold tracking-[0.18em] text-flag"
+          >
             {t("stampVoided")}
           </p>
         </div>

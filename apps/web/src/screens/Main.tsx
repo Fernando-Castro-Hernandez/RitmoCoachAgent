@@ -44,6 +44,8 @@ interface Props {
   /** Latencia real del último turno, en ms (ADR 0012). */
   ttfaMs?: number | null;
   onStartOver?: () => void;
+  /** El plan mostrado es de ejemplo y no lo generó el motor para este corredor. */
+  specimen?: boolean;
 }
 
 export function Main({
@@ -61,6 +63,7 @@ export function Main({
   onUpload,
   ttfaMs,
   onStartOver,
+  specimen = false,
 }: Props) {
   const { t } = useT();
   const [texto, setTexto] = useState("");
@@ -80,12 +83,20 @@ export function Main({
 
   return (
     <div className="mx-auto flex h-dvh max-w-6xl flex-col">
-      <FormHeader />
+      <FormHeader specimen={specimen} />
 
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:divide-x lg:divide-ink-15">
         {/* Columna izquierda en escritorio: la estructura. */}
         <div className="min-h-0 lg:overflow-y-auto">
           <ContextStrip ctx={ctx} />
+
+          {specimen && safety !== "flag" && (
+            <p className="border-b border-ink-15 bg-caution/8 px-4 py-2 text-[0.8125rem] text-ink">
+              <span className="label !text-caution">{t("specimen")}</span>
+              <span aria-hidden="true"> — </span>
+              {t("specimenWhy")}
+            </p>
+          )}
 
           {safety === "flag" ? (
             <SafetyStop message={referral} onAcknowledge={onAcknowledge} />
@@ -141,7 +152,7 @@ export function Main({
                   placeholder={t("typeHere")}
                   aria-label={t("typeHere")}
                   autoComplete="off"
-                  className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[0.9375rem] placeholder:text-ink-30 focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[0.9375rem] placeholder:text-ink-70 focus:outline-none"
                 />
                 <button
                   type="submit"
@@ -164,7 +175,7 @@ export function Main({
                   <button
                     type="button"
                     onClick={onStartOver}
-                    className="label text-left leading-tight text-ink-30 transition-colors hover:text-ink"
+                    className="label text-left leading-tight text-ink-70 transition-colors hover:text-ink"
                   >
                     {t("startOver")}
                   </button>

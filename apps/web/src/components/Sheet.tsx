@@ -13,14 +13,14 @@ import { type Locale, type TextKey, useLocale, useT } from "../i18n";
 
 /* ── cabecera del formulario ─────────────────────────────────────── */
 
-export function FormHeader() {
+export function FormHeader({ specimen = false }: { specimen?: boolean }) {
   const { t, locale } = useT();
   const setLocale = useLocale((s) => s.setLocale);
   const otro: Locale = locale === "es" ? "en" : "es";
 
   return (
     <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-ink px-4 py-3">
-      <span className="label">{t("formCode")}</span>
+      <span className="label">{t(specimen ? "formCodeDemo" : "formCode")}</span>
       <h1 className="text-center text-2xl font-semibold tracking-[0.2em] uppercase">
         {t("brand")}
       </h1>

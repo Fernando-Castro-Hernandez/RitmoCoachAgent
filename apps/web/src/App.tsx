@@ -255,6 +255,11 @@ export default function App() {
          para ensayar la demo y para que cualquiera pruebe la app en frío. En
          producción viviría dentro de ajustes. */
       onStartOver={startOver}
+      /* La hoja todavía no consume GET /api/plan: lo que se ve es una muestra,
+         y se dice. Un desconocido que abre la URL en frío no puede confundir
+         datos de ejemplo con una prescripción hecha para él — la regla 2 del
+         producto es que toda cifra viene del motor y SE NOTA. */
+      specimen
     />
   );
 }

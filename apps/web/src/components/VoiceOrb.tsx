@@ -27,17 +27,25 @@ interface Props {
   onClick: () => void;
 }
 
-/** Cada estado: tinta, anillos, y si el disco respira. */
+/**
+ * Cada estado: tinta, sangrado y si la gota respira.
+ *
+ * Todos los estados operables son AZUL DE PROCESO, por la disciplina donada:
+ * el acento es el control. El coach hablando es el sistema vivo, y lo vivo es
+ * azul igual que lo tocable. Los estados se distinguen por cuánto sangra la
+ * tinta y a qué ritmo, no por cambiar de color — cambiar de color aquí robaría
+ * las tintas de señal, que pertenecen sólo al código de seguridad.
+ */
 const TINTA: Record<VoiceState, { color: string; rings: number; breathes: boolean }> = {
-  IDLE: { color: "var(--color-ink-30)", rings: 2, breathes: false },
-  REQUESTING_MIC: { color: "var(--color-ink-50)", rings: 3, breathes: true },
-  CONNECTING: { color: "var(--color-ink-50)", rings: 4, breathes: true },
+  IDLE: { color: "var(--color-proof)", rings: 2, breathes: false },
+  REQUESTING_MIC: { color: "var(--color-proof)", rings: 3, breathes: true },
+  CONNECTING: { color: "var(--color-proof)", rings: 4, breathes: true },
   LISTENING: { color: "var(--color-proof)", rings: 6, breathes: true },
   USER_SPEAKING: { color: "var(--color-proof)", rings: 9, breathes: true },
   THINKING: { color: "var(--color-proof-deep)", rings: 3, breathes: true },
   TOOL_RUNNING: { color: "var(--color-proof-deep)", rings: 4, breathes: true },
-  SPEAKING: { color: "var(--color-clear)", rings: 7, breathes: true },
-  INTERRUPTIBLE: { color: "var(--color-clear)", rings: 5, breathes: true },
+  SPEAKING: { color: "var(--color-proof)", rings: 7, breathes: true },
+  INTERRUPTIBLE: { color: "var(--color-proof)", rings: 5, breathes: true },
   ERROR: { color: "var(--color-flag)", rings: 1, breathes: false },
   SAFETY_STOP: { color: "var(--color-flag)", rings: 0, breathes: false },
 };
@@ -74,6 +82,21 @@ function resolverTintas(): Record<VoiceState, string> {
   return Object.fromEntries(
     Object.entries(TINTA).map(([estado, { color }]) => [estado, leer(color)]),
   ) as Record<VoiceState, string>;
+}
+
+/** Aplica alfa a un color ya resuelto, sin volver a leer estilos. */
+function mezcla(hex: string, alfa: number): string {
+  const limpio = hex.replace("#", "");
+  const n = parseInt(
+    limpio.length === 3
+      ? limpio
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : limpio,
+    16,
+  );
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alfa})`;
 }
 
 export function VoiceOrb({ state, level, onClick }: Props) {
@@ -155,48 +178,93 @@ export function VoiceOrb({ state, level, onClick }: Props) {
       const base = Math.min(w, h) * 0.11;
       const nucleo = base * (1 + respiro + suave * 0.55);
 
-      // El núcleo: tinta densa, con el borde ligeramente irregular como una
-      // gota que todavía no seca.
-      ctx.fillStyle = tinta;
-      ctx.beginPath();
-      const pasos = 72;
-      for (let i = 0; i <= pasos; i += 1) {
-        const a = (i / pasos) * Math.PI * 2;
-        const onda =
-          1 +
-          0.018 * Math.sin(a * 3 + tiempo * 1.1) +
-          0.012 * Math.sin(a * 5 - tiempo * 0.7) +
-          suave * 0.05 * Math.sin(a * 7 + tiempo * 2.3);
-        const r = nucleo * onda;
-        const x = cx + Math.cos(a) * r;
-        const y = cy + Math.sin(a) * r * 0.92;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
+      // ── Tinta húmeda ────────────────────────────────────────────
+      // El contrato designa este orbe como el ÚNICO degradado del mundo, y la
+      // única cosa no impresa de la hoja. Anillos de trazo parejo eran un
+      // diagrama vectorial de una onda; esto es tinta: densidad que cae hacia
+      // el papel, borde que sangra irregular, y manchas donde la fibra chupó
+      // más de la cuenta.
 
-      // Los anillos de difusión: la tinta corriéndose por la fibra del papel.
-      ctx.lineWidth = Math.max(1, dpr * 0.75);
-      for (let k = 1; k <= rings; k += 1) {
-        const avance = quieto ? k / (rings + 1) : ((tiempo * 0.28 + k / rings) % 1);
-        const r = nucleo * (1.25 + avance * (2.6 + suave * 1.8));
-        const alfa = (1 - avance) * (0.32 + suave * 0.4) * (quieto ? 0.7 : 1);
-        if (alfa <= 0.01) continue;
-        ctx.globalAlpha = alfa;
-        ctx.strokeStyle = tinta;
+      const contorno = (radio: number, semilla: number, rugosidad: number) => {
         ctx.beginPath();
+        const pasos = 84;
         for (let i = 0; i <= pasos; i += 1) {
           const a = (i / pasos) * Math.PI * 2;
-          const onda = 1 + 0.03 * Math.sin(a * 4 + k + tiempo * 0.6);
-          const x = cx + Math.cos(a) * r * onda;
-          const y = cy + Math.sin(a) * r * onda * 0.92;
+          const onda =
+            1 +
+            rugosidad * 0.55 * Math.sin(a * 3 + semilla + tiempo * 0.5) +
+            rugosidad * 0.32 * Math.sin(a * 5 - semilla * 1.7 + tiempo * 0.31) +
+            rugosidad * 0.2 * Math.sin(a * 8 + semilla * 2.3 - tiempo * 0.7);
+          const r = radio * onda;
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r * 0.9;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.stroke();
+      };
+
+      // El halo: la tinta que ya se corrió por la fibra y se está secando.
+      // Es un degradado radial de verdad, no un trazo.
+      const halo = nucleo * (2.1 + suave * 1.6);
+      const difusion = ctx.createRadialGradient(cx, cy, nucleo * 0.6, cx, cy, halo);
+      difusion.addColorStop(0, mezcla(tinta, 0.42 + suave * 0.28));
+      difusion.addColorStop(0.45, mezcla(tinta, 0.14 + suave * 0.14));
+      difusion.addColorStop(1, mezcla(tinta, 0));
+      ctx.fillStyle = difusion;
+      contorno(halo, 1.3, 0.055);
+      ctx.fill();
+
+      // Los frentes de avance: la tinta empujando hacia afuera. Rellenos y no
+      // trazados, porque la tinta no dibuja circunferencias.
+      for (let k = 1; k <= rings; k += 1) {
+        const avance = quieto ? k / (rings + 1) : ((tiempo * 0.22 + k / rings) % 1);
+        const r = nucleo * (1.1 + avance * (1.9 + suave * 1.3));
+        const alfa = (1 - avance) ** 1.7 * (0.2 + suave * 0.3);
+        if (alfa <= 0.008) continue;
+        const frente = ctx.createRadialGradient(cx, cy, r * 0.82, cx, cy, r);
+        frente.addColorStop(0, mezcla(tinta, 0));
+        frente.addColorStop(1, mezcla(tinta, alfa));
+        ctx.fillStyle = frente;
+        contorno(r, k * 1.9, 0.045);
+        ctx.fill();
       }
+
+      // El núcleo: tinta saturada, con el borde mordido por el papel.
+      const cuerpo = ctx.createRadialGradient(
+        cx - nucleo * 0.18,
+        cy - nucleo * 0.2,
+        nucleo * 0.15,
+        cx,
+        cy,
+        nucleo * 1.12,
+      );
+      cuerpo.addColorStop(0, mezcla(tinta, 1));
+      cuerpo.addColorStop(0.7, mezcla(tinta, 0.97));
+      cuerpo.addColorStop(1, mezcla(tinta, 0.55));
+      ctx.fillStyle = cuerpo;
+      contorno(nucleo, 0.4, 0.038);
+      ctx.fill();
+
+      // Tres manchas donde la fibra chupó más. Sin esto el borde es demasiado
+      // parejo para leerse como líquido.
+      for (let k = 0; k < 3; k += 1) {
+        const a = (k / 3) * Math.PI * 2 + tiempo * 0.13 + k;
+        const d = nucleo * (0.92 + 0.1 * Math.sin(tiempo * 0.6 + k * 2));
+        ctx.fillStyle = mezcla(tinta, 0.5);
+        ctx.beginPath();
+        ctx.ellipse(
+          cx + Math.cos(a) * d,
+          cy + Math.sin(a) * d * 0.9,
+          nucleo * (0.16 + 0.05 * Math.sin(tiempo + k)),
+          nucleo * 0.11,
+          a,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+
       ctx.globalAlpha = 1;
 
       // En reposo y sin señal no hay nada que animar: se dibuja una vez y el
