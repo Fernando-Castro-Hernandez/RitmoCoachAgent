@@ -25,20 +25,24 @@ class Settings(BaseSettings):
 
     # Ruta de visión (ADR 0014). Modelo distinto y protocolo distinto: Nova 2
     # Sonic sólo acepta SPEECH, así que no puede leer una imagen.
-    # Cadena de modelos de visión, en orden de preferencia y separada por comas.
+    # ─── Visión · API directa de Anthropic (ADR 0014) ────────────────
     #
-    # Es una cadena y no un modelo único porque la disponibilidad resultó ser
-    # el problema real, no la capacidad: en esta cuenta los seis modelos con
-    # visión están bloqueados por la misma cuota diaria en 0, y los de Anthropic
-    # además por un acuerdo pendiente. Con una lista, desbloquear cualquiera de
-    # ellos hace funcionar la ruta sin tocar código ni volver a desplegar.
+    # La ruta de visión salió de AWS. No es preferencia de modelo: en la cuenta
+    # de Bedrock los seis modelos con visión tenían la cuota diaria en 0 y los
+    # de Anthropic además el acuerdo pendiente. Con saldo propio en la
+    # plataforma de Anthropic, la ruta deja de depender de eso.
     #
-    # El prefijo «us.» no es opcional: estos modelos no admiten invocación
-    # directa («on-demand throughput isn't supported»), sólo a través de un
-    # perfil de inferencia entre regiones (ADR 0014).
-    vision_model_chain: str = (
-        "us.anthropic.claude-haiku-4-5-20251001-v1:0,us.amazon.nova-2-lite-v1:0"
-    )
+    # La voz se queda en Bedrock y no se toca: Anthropic no tiene streaming
+    # bidireccional de voz y Nova Sonic sí.
+    anthropic_api_key: str = ""
+
+    # Cadena ordenada, separada por comas. Sigue siendo una lista aunque hoy
+    # lleve un solo modelo: es lo que permitió sobrevivir al bloqueo de AWS sin
+    # tocar código, y cuesta cero mantenerla.
+    #
+    # OJO con el modelo: Claude 3.5 Haiku **no acepta imágenes**. El Haiku que
+    # sí las acepta es el 4.5. Ver la nota del ADR 0014.
+    vision_model_chain: str = "claude-haiku-4-5-20251001"
 
     database_url: str = "postgresql+psycopg://ritmo:ritmo@localhost:5432/ritmo"
     bedrock_guardrail_id: str = ""

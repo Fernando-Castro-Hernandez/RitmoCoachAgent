@@ -1,11 +1,11 @@
-"""Verificación de la ruta de visión contra Bedrock real.
+"""Verificación de la ruta de visión contra la API real de Anthropic.
 
 Código desechable, igual que los spikes de la Fase A. Genera una captura de
 reloj sintética —fondo negro, tipografía condensada, unidades pegadas al número:
 la peor entrada posible para un OCR clásico— y la pasa por el modelo de visión
 para confirmar tres cosas:
 
-1. Que `amazon.nova-2-lite-v1:0` responde y respeta el `toolConfig`.
+1. Que el modelo responde y respeta el `tool_choice` forzado.
 2. Que lee las cifras correctas.
 3. Que el motor recalcula el ritmo y detecta el que está mal puesto a propósito.
 
@@ -28,9 +28,8 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
-from apps.api.credentials import ensure_aws_credentials  # noqa: E402
 from apps.api.logging_setup import configure_logging  # noqa: E402
-from apps.api.vision.client import BedrockVisionClient  # noqa: E402
+from apps.api.vision.anthropic_client import AnthropicVisionClient  # noqa: E402
 from apps.api.vision.workout import extract_workout, reconcile  # noqa: E402
 
 # Lo que "muestra" el reloj. El ritmo está puesto MAL a propósito: 8.42 km en
@@ -78,7 +77,7 @@ def captura_falsa() -> bytes:
 
 async def main() -> int:
     configure_logging()
-    ensure_aws_credentials()
+    # Sin credenciales de AWS: esta ruta ya no pasa por Bedrock.
 
     imagen = captura_falsa()
     Path("spikes/captura_sintetica.png").write_bytes(imagen)
@@ -86,7 +85,7 @@ async def main() -> int:
     print(f"la pantalla dice: {DISTANCIA} km · {TIEMPO} · {RITMO_EN_PANTALLA}/km · {PULSO} ppm")
     print("(el ritmo de la pantalla está mal a propósito)\n")
 
-    cliente = BedrockVisionClient()
+    cliente = AnthropicVisionClient()
     inicio = time.monotonic()
     extraccion = await extract_workout(cliente, imagen, "image/png")
     tardanza = (time.monotonic() - inicio) * 1000

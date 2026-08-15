@@ -19,10 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.config import get_settings
 from apps.api.db.session import get_session
+from apps.api.vision.anthropic_client import AnthropicVisionClient
 from apps.api.vision.client import (
     MAX_IMAGE_BYTES,
     AllVisionModelsUnavailableError,
-    BedrockVisionClient,
     ChainVisionClient,
     VisionClient,
     VisionError,
@@ -43,8 +43,13 @@ TIPOS_ACEPTADOS = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 def get_vision_client() -> VisionClient:
     """Dependencia sustituible: las pruebas inyectan un cliente falso."""
-    modelos = get_settings().vision_models
-    return ChainVisionClient([BedrockVisionClient(m) for m in modelos])
+    ajustes = get_settings()
+    # Sólo Anthropic en esta cadena. Mezclar proveedores en un mismo endpoint
+    # haría que un fallo pudiera venir de dos sitios con formatos de error
+    # distintos, y depurarlo costaría más de lo que ahorraría.
+    return ChainVisionClient(
+        [AnthropicVisionClient(m, ajustes.anthropic_api_key) for m in ajustes.vision_models]
+    )
 
 
 ClienteVision = Annotated[VisionClient, Depends(get_vision_client)]

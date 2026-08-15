@@ -1,7 +1,7 @@
-# ADR 0014 — Arquitectura multimodelo: visión por REST, voz por streaming
+# ADR 0014 — Arquitectura multi-nube: voz en Bedrock, visión en Anthropic
 
 - **Estado:** Aceptada
-- **Fecha:** 2026-08-14
+- **Fecha:** 2026-08-14 · **revisada** 2026-08-15 (pivote multi-nube)
 - **Relacionada:** [ADR 0002](0002-nova-2-sonic-en-bedrock.md),
   [ADR 0010](0010-fuera-de-alcance-gps-y-tracking.md),
   [ADR 0011](0011-modulo-de-tecnica-de-carrera.md),
@@ -261,6 +261,80 @@ Esto reordena la tesis del pivote, y para bien: **la visión es una comodidad,
 no un requisito.** Lo que sustituye a la integración con Garmin no es el modelo
 de visión — es no exigir OAuth. Escribir cuatro números sigue siendo más rápido
 que registrar una aplicación en Strava.
+
+---
+
+## Revisión del 15-ago-2026: la visión sale de AWS
+
+Las cuotas de la cuenta de Bedrock no se levantaron, y no son ajustables a
+petición: `Not adjustable` hasta que la cuenta cumpla su ciclo. Esperar a que
+AWS desbloquee una cuenta nueva no es un plan de entrega.
+
+**Decisión: arquitectura multi-nube.** Cada ruta va al proveedor que la resuelve
+mejor, y ninguna depende de la disponibilidad de la otra.
+
+```
+RUTA DE VOZ · AWS Bedrock                     latencia ~800 ms, streaming
+  navegador ─WebSocket─► FastAPI ─InvokeModelWithBidirectionalStream─►
+                                    amazon.nova-2-sonic-v1:0   [SPEECH]
+
+RUTA DE VISIÓN · API directa de Anthropic     latencia ~3 s, REST
+  navegador ─POST multipart─► FastAPI ─messages.create─►
+                                    api.anthropic.com
+                                    claude-haiku-4-5           [TEXT·IMAGE]
+                             │
+                             └─► si falla ─► captura manual
+```
+
+### Por qué cada uno donde está
+
+| | Voz | Visión |
+|---|---|---|
+| **Dónde** | AWS Bedrock | API directa de Anthropic |
+| **Por qué ahí** | Anthropic no tiene streaming bidireccional de voz. Nova Sonic sí, y es speech-to-speech nativo. | Saldo propio, cuotas propias, sin acuerdos pendientes ni ciclos de cuenta nueva. |
+| **Por qué no al revés** | Una API REST no da barge-in ni prosodia; encadenar STT+LLM+TTS multiplica la latencia (ADR 0001). | En Bedrock esta ruta estaba a cero y no se podía desbloquear a petición. |
+| **Credenciales** | Rol IAM de instancia, cero claves estáticas | `ANTHROPIC_API_KEY` en el entorno |
+
+El beneficio real no es de latencia ni de coste: es que **un incidente de
+disponibilidad en un proveedor ya no tumba las dos rutas.** Con todo en Bedrock,
+la cuota diaria en cero dejó la visión inservible sin tocar la voz sólo por
+casualidad —porque el streaming bidireccional no la consume—. Repartirlo lo
+convierte en una propiedad del diseño y no en una suerte.
+
+### El modelo: Haiku 4.5, no Haiku 3.5
+
+El pivote pedía `claude-3-5-haiku-latest`. **Claude 3.5 Haiku no acepta imágenes
+de entrada.** Es texto solamente, y usarlo aquí rompería la ruta entera con un
+error poco obvio; es el tropiezo fácil de cometer al buscar «el Haiku barato».
+
+El Haiku con visión es el **4.5** (`claude-haiku-4-5-20251001`), que además es
+más nuevo y más capaz. Hay una prueba que falla si alguien vuelve a poner un 3.5
+en la cadena, para que el error no se pueda repetir en silencio.
+
+### Coste de esta decisión
+
+- **Dos facturas y dos consolas** en vez de una. Es el precio de no tener un
+  único punto de fallo, y a esta escala es un renglón.
+- **Una clave estática que gestionar.** La voz no tiene ninguna —rol IAM de
+  instancia— así que ahora hay una asimetría real: `ANTHROPIC_API_KEY` vive en
+  el entorno del servidor y hay que rotarla a mano. Queda anotado como la deuda
+  de seguridad de esta decisión.
+- **La imagen sale de AWS.** Antes la captura viajaba dentro de la nube; ahora
+  sale a `api.anthropic.com`. Para capturas de reloj es aceptable; si algún día
+  entrara material más sensible, habría que revisarlo.
+
+### Lo que NO cambia
+
+`ChainVisionClient`, el esquema, `reconcile`, la validación del motor y la
+degradación a captura manual son idénticos. El cliente nuevo implementa el mismo
+protocolo `VisionClient`, así que el resto del sistema no se entera de por dónde
+salió la imagen — y por eso este pivote fue un archivo nuevo y una variable de
+entorno, no un refactor. `BedrockVisionClient` se conserva: volver es cambiar una
+línea en `get_vision_client`, y sigue siendo la alternativa si el saldo se agota.
+
+Y sobre todo: **el motor sigue mandando.** El ritmo se recalcula igual, la
+discrepancia se marca igual, y nada entra a la bitácora sin que el corredor lo
+vea. La regla del ADR 0003 no depende del proveedor.
 
 ## Alternativas descartadas
 

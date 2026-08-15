@@ -32,7 +32,7 @@ La Fase 1 es un documento HTML: ábrelo en el navegador o consulta la
 | [0011](adr/0011-modulo-de-tecnica-de-carrera.md) | Módulo de técnica de carrera | Aceptada |
 | [0012](adr/0012-observabilidad-y-metricas.md) | Observabilidad, métricas y DevOps | Aceptada |
 | [0013](adr/0013-guardrails-fuera-de-la-ruta-de-voz.md) | Guardrails de Bedrock fuera de la ruta de voz | Aceptada |
-| [0014](adr/0014-arquitectura-multimodelo-vision.md) | Arquitectura multimodelo: visión por REST, voz por streaming | Aceptada |
+| [0014](adr/0014-arquitectura-multimodelo-vision.md) | Arquitectura multi-nube: voz en Bedrock, visión en Anthropic | Aceptada |
 
 ## La tesis en un párrafo
 

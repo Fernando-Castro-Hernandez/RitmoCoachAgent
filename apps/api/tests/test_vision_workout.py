@@ -304,13 +304,16 @@ def test_una_cadena_vacia_es_un_error_de_configuracion() -> None:
         ChainVisionClient([])
 
 
-def test_la_cadena_por_defecto_lleva_dos_modelos() -> None:
-    """Configurable por entorno: desbloquear cualquiera de los dos hace
-    funcionar la ruta sin tocar código ni volver a desplegar."""
+def test_la_cadena_por_defecto_es_de_un_solo_proveedor() -> None:
+    """Desde el pivote multi-nube la visión va sólo por Anthropic.
+
+    Mezclar proveedores en un mismo endpoint haría que un fallo pudiera venir de
+    dos sitios con formatos de error distintos, y depurarlo costaría más de lo
+    que ahorraría. La cadena sigue siendo una lista porque es lo que permitió
+    sobrevivir al bloqueo de AWS sin tocar código.
+    """
     from apps.api.config import Settings
 
     modelos = Settings().vision_models
-    assert len(modelos) >= 2
-    assert all(m.startswith(("us.", "global.")) for m in modelos), (
-        "sin perfil de inferencia, Bedrock rechaza la invocación directa"
-    )
+    assert modelos
+    assert all(m.startswith("claude-") for m in modelos)

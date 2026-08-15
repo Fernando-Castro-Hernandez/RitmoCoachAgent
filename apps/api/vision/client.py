@@ -1,8 +1,14 @@
-"""Cliente de visión: `Converse` sobre Bedrock, con salida estructurada.
+"""Contrato de la ruta de visión, y su implementación sobre Bedrock.
 
-La otra mitad de la arquitectura multimodelo del ADR 0014. Nova 2 Sonic sólo
-acepta `SPEECH` —verificado contra el catálogo de la cuenta— así que las
-imágenes van por una ruta distinta, con otro modelo y otro protocolo.
+Aquí viven el protocolo `VisionClient`, la cadena de modelos y el cliente de
+Bedrock. **El cliente de Bedrock ya no es la ruta por defecto**: desde el pivote
+multi-nube la visión va por la API directa de Anthropic
+(`apps/api/vision/anthropic_client.py`). Se conserva porque volver a Bedrock es
+un cambio de una línea en `get_vision_client`, y porque el ADR 0014 documenta
+esa ruta como la alternativa vigente si el saldo de Anthropic se agota.
+
+Nova 2 Sonic sólo acepta `SPEECH` —verificado contra el catálogo de la cuenta—
+así que la voz nunca pudo compartir modelo con la visión.
 
 Dos decisiones que no son cosméticas:
 
