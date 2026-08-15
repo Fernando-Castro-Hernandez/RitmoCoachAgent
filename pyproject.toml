@@ -46,7 +46,6 @@ package = false
 [tool.poe.tasks]
 dev        = "docker compose up --build"
 down       = "docker compose down"
-web        = "npm --prefix apps/web run dev"
 test       = "pytest packages apps -v"
 test-dom   = "pytest packages -v --cov=coach_domain --cov-fail-under=95"
 evals      = "python evals/run.py"
@@ -61,6 +60,17 @@ deploy     = "bash infra/deploy.sh"
 help = "API en local con recarga automática"
 cmd = "python -m uvicorn apps.api.main:app --reload --port 8000"
 env = { PYTHONPATH = "packages" }
+
+# `shell` y no `cmd`: en Windows npm es npm.cmd, y las tareas `cmd` de poe
+# lanzan el proceso directamente sin pasar por el shell, así que fallan con
+# «Failed to spawn: npm — program not found».
+[tool.poe.tasks.web]
+help = "Frontend en local"
+shell = "npm --prefix apps/web run dev"
+
+[tool.poe.tasks.web-install]
+help = "Instala las dependencias del frontend"
+shell = "npm --prefix apps/web install"
 
 [tool.poe.tasks.lint]
 sequence = [
