@@ -95,7 +95,7 @@ export default function App() {
   // La sesión de voz vive en un ref: sobrevive a los renders y sólo hay una.
   const sesion = useRef<VoiceSession | null>(null);
 
-  const abrirSesion = useCallback(async () => {
+  const abrirSesion = useCallback(async (soloTexto = false) => {
     const s = new VoiceSession({
       onEvent: enviarEvento,
       onLevel: setNivel,
@@ -105,10 +105,13 @@ export default function App() {
     });
     sesion.current = s;
     try {
-      await s.start(userId);
+      if (soloTexto) await s.startTextOnly(userId);
+      else await s.start(userId);
+      return true;
     } catch (e) {
       enviarEvento({ type: "ERROR", message: e instanceof Error ? e.message : "no pude conectar" });
       sesion.current = null;
+      return false;
     }
   }, [enviarEvento, userId]);
 
@@ -151,15 +154,19 @@ export default function App() {
     enviarEvento({ type: "HANG_UP" });
   };
 
-  const escribir = (texto: string) => {
+  const escribir = async (texto: string) => {
     setTurnos((v) => [...v, { role: "user", text: texto }]);
-    if (sesion.current) {
-      sesion.current.sendText(texto);
-      return;
+
+    // Escribir no debería exigir haber abierto la voz antes. Si no hay sesión,
+    // se abre una sin micrófono y el turno sale por el mismo WebSocket: el
+    // backend acepta texto y voz en la misma conversación.
+    if (!sesion.current?.isOpen) {
+      enviarEvento({ type: "MIC_CLICK" });
+      enviarEvento({ type: "MIC_GRANTED" });
+      const abierta = await abrirSesion(true);
+      if (!abierta) return;
     }
-    // Sin sesión abierta el texto no tiene por dónde salir. Decirlo es mejor
-    // que tragárselo y dejar al corredor esperando una respuesta que no viene.
-    setTurnos((v) => [...v, { role: "coach", text: t("stIdle") }]);
+    sesion.current?.sendText(texto);
   };
 
   const terminarOnboarding = async (perfil: HardProfile) => {
@@ -202,8 +209,7 @@ export default function App() {
   }
 
   return (
-    <>
-      <Main
+    <Main
         ctx={CTX_DEMO}
         session={{ ...SESION_DEMO, why: t("demoWhy") }}
         safety={safety}
@@ -218,20 +224,12 @@ export default function App() {
           enviarEvento({ type: "SAFETY_ACK" });
           setSafety("clear");
         }}
-        onUpload={() => setPantalla("captura")}
-        ttfaMs={ttfa}
-      />
-
-      {/* Volver a ver el primer arranque sin borrar datos a mano. Está aquí
-          para poder ensayar la demo y para que cualquiera pruebe la app como
-          un corredor nuevo; en producción viviría dentro de ajustes. */}
-      <button
-        type="button"
-        onClick={startOver}
-        className="label fixed bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 opacity-40 transition-opacity hover:opacity-100"
-      >
-        empezar de cero
-      </button>
-    </>
+      onUpload={() => setPantalla("captura")}
+      ttfaMs={ttfa}
+      /* Volver a ver el primer arranque sin borrar datos a mano: hace falta
+         para ensayar la demo y para que cualquiera pruebe la app en frío. En
+         producción viviría dentro de ajustes. */
+      onStartOver={startOver}
+    />
   );
 }

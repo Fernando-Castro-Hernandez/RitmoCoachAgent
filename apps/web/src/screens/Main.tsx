@@ -43,6 +43,7 @@ interface Props {
   onUpload: () => void;
   /** Latencia real del último turno, en ms (ADR 0012). */
   ttfaMs?: number | null;
+  onStartOver?: () => void;
 }
 
 export function Main({
@@ -59,6 +60,7 @@ export function Main({
   onAcknowledge,
   onUpload,
   ttfaMs,
+  onStartOver,
 }: Props) {
   const { t } = useT();
   const [texto, setTexto] = useState("");
@@ -101,7 +103,10 @@ export function Main({
             {/* La latencia medida, no prometida. Sale del primer chunk de
                 audio del coach y es lo que va al README. */}
             {ttfaMs !== null && ttfaMs !== undefined && (
-              <span className="label fig self-center px-2" title="tiempo hasta el primer audio">
+              <span
+                className="label fig self-center px-3 whitespace-nowrap"
+                title="tiempo hasta la primera respuesta"
+              >
                 {ttfaMs} ms
               </span>
             )}
@@ -148,17 +153,45 @@ export function Main({
               </form>
             )}
 
-            <div className="flex items-end gap-2 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-              <RegistrationMark className="mb-6 shrink-0" />
+            {/* Tres columnas de ancho fijo a los lados y el orbe en el centro:
+                así el orbe queda centrado de verdad respecto a la pantalla y
+                nada se le encima. Antes «empezar de cero» iba en posición fija
+                y aterrizaba sobre la etiqueta del orbe. */}
+            <div className="grid grid-cols-[5rem_1fr_5rem] items-center gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="flex items-center gap-2">
+                <RegistrationMark className="shrink-0" />
+                {onStartOver && (
+                  <button
+                    type="button"
+                    onClick={onStartOver}
+                    className="label text-left leading-tight text-ink-30 transition-colors hover:text-ink"
+                  >
+                    {t("startOver")}
+                  </button>
+                )}
+              </div>
+
               <VoiceOrb state={voice} level={level} onClick={onOrbClick} />
-              <button
-                type="button"
-                onClick={() => setEscribiendo((v) => !v)}
-                aria-pressed={escribiendo}
-                className="label mb-6 shrink-0 border border-ink-15 px-2 py-1 transition-colors hover:bg-ink hover:text-paper"
-              >
-                {t("write")}
-              </button>
+
+              {/* El toggle desaparece cuando el campo se impuso solo: sin
+                  micrófono no hay nada que alternar, y un botón que no cambia
+                  nada es ruido. */}
+              {!micDenied && voice !== "ERROR" ? (
+                <button
+                  type="button"
+                  onClick={() => setEscribiendo((v) => !v)}
+                  aria-expanded={escribiendo}
+                  className={`label justify-self-end border px-2 py-1 transition-colors ${
+                    escribiendo
+                      ? "border-ink bg-ink text-paper"
+                      : "border-ink-15 hover:border-ink"
+                  }`}
+                >
+                  {escribiendo ? t("close") : t("write")}
+                </button>
+              ) : (
+                <span />
+              )}
             </div>
           </footer>
         </div>

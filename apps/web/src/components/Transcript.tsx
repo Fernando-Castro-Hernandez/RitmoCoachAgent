@@ -21,19 +21,25 @@ const RENGLONES_MINIMOS = 2;
 
 export function Transcript({ turns }: { turns: Turn[] }) {
   const { t } = useT();
-  const fin = useRef<HTMLDivElement>(null);
+  const caja = useRef<HTMLElement>(null);
 
+  // Se desplaza el CONTENEDOR y no un elemento centinela: `scrollIntoView`
+  // sobre un hijo también arrastra la página entera cuando el contenedor no es
+  // el que scrollea, y en móvil eso mueve la hoja bajo el dedo.
   useEffect(() => {
-    fin.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [turns.length]);
+    const c = caja.current;
+    if (!c) return;
+    c.scrollTo({ top: c.scrollHeight, behavior: "smooth" });
+  }, [turns.length, turns[turns.length - 1]?.text]);
 
   const vacios = Math.max(0, RENGLONES_MINIMOS - turns.length);
 
   return (
     <section
+      ref={caja}
       aria-label={t("coach")}
       aria-live="polite"
-      className="min-h-0 flex-1 overflow-y-auto"
+      className="min-h-0 flex-1 overflow-y-auto scroll-smooth"
     >
       {turns.map((turno, i) => (
         <div
@@ -65,7 +71,6 @@ export function Transcript({ turns }: { turns: Turn[] }) {
           <div className="px-4 py-3">&nbsp;</div>
         </div>
       ))}
-      <div ref={fin} />
     </section>
   );
 }

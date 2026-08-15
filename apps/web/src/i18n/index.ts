@@ -64,6 +64,8 @@ const es = {
 
   end: "Terminar",
   write: "Escribir",
+  close: "Cerrar",
+  startOver: "Empezar de cero",
   send: "Enviar",
   typeHere: "Escríbele a Ritmo",
 
@@ -178,6 +180,8 @@ const en: Dict = {
 
   end: "End",
   write: "Type",
+  close: "Close",
+  startOver: "Start over",
   send: "Send",
   typeHere: "Write to Ritmo",
 
