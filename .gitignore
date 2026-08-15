@@ -46,3 +46,6 @@ spikes/captura_sintetica.png
 
 # Comps generadas por impeccable
 .impeccable/comps/
+
+# Base de desarrollo local (sin Docker)
+ritmo-dev.db
