@@ -100,17 +100,31 @@ export function VoiceOrb({ state, level, onClick }: Props) {
     // Suavizado del nivel: el micrófono da picos, y el papel no salta.
     let suave = 0;
 
+    // Se mide contra el CONTENEDOR y no contra el propio lienzo: escribir
+    // `canvas.width` cambia su tamaño intrínseco, y un ResizeObserver sobre el
+    // elemento que estás redimensionando es una invitación a un bucle.
     const medir = () => {
-      const r = lienzo.getBoundingClientRect();
-      lienzo.width = Math.round(r.width * dpr);
-      lienzo.height = Math.round(r.height * dpr);
+      const r = (lienzo.parentElement ?? lienzo).getBoundingClientRect();
+      const ancho = Math.min(r.width, 352);
+      lienzo.width = Math.round(ancho * dpr);
+      lienzo.height = Math.round(112 * dpr);
     };
     medir();
-    const ro = new ResizeObserver(medir);
-    ro.observe(lienzo);
+    window.addEventListener("resize", medir);
+
+    // A 30 fps. La tinta se difunde despacio; sesenta fotogramas por segundo no
+    // se ven mejor y sí se notan en la batería de un teléfono que va en el
+    // bolsillo durante una hora de carrera.
+    const PASO_MS = 1000 / 30;
+    let ultimo = 0;
 
     const pintar = (ms: number) => {
       if (!t0) t0 = ms;
+      if (ms - ultimo < PASO_MS) {
+        raf = requestAnimationFrame(pintar);
+        return;
+      }
+      ultimo = ms;
       const tiempo = (ms - t0) / 1000;
       const { rings, breathes } = TINTA[estado.current];
       const tinta = tintas[estado.current];
@@ -170,13 +184,33 @@ export function VoiceOrb({ state, level, onClick }: Props) {
       }
       ctx.globalAlpha = 1;
 
-      if (!quieto) raf = requestAnimationFrame(pintar);
+      // En reposo y sin señal no hay nada que animar: se dibuja una vez y el
+      // bucle se detiene hasta que algo cambie. Un orbe gris quieto no necesita
+      // treinta fotogramas por segundo.
+      const dormido = !breathes && suave < 0.01 && rings <= 2;
+      if (quieto || dormido || document.hidden) {
+        raf = 0;
+        return;
+      }
+      raf = requestAnimationFrame(pintar);
     };
 
-    raf = requestAnimationFrame(pintar);
+    const arrancar = () => {
+      if (!raf) {
+        ultimo = 0;
+        raf = requestAnimationFrame(pintar);
+      }
+    };
+    arrancar();
+    // Se despierta cuando cambia el estado o cuando la pestaña vuelve al frente.
+    const observador = window.setInterval(arrancar, 250);
+    document.addEventListener("visibilitychange", arrancar);
+
     return () => {
       cancelAnimationFrame(raf);
-      ro.disconnect();
+      window.clearInterval(observador);
+      window.removeEventListener("resize", medir);
+      document.removeEventListener("visibilitychange", arrancar);
     };
   }, []);
 

@@ -24,6 +24,7 @@ import { useT } from "./i18n";
 import { Main } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
 import { Upload } from "./screens/Upload";
+import { VoiceSession } from "./session";
 import {
   type VoiceEvent,
   type VoiceMachine,
@@ -62,7 +63,7 @@ export default function App() {
   const [nivel, setNivel] = useState(0);
   const [turnos, setTurnos] = useState<Turn[]>([]);
   const [safety, setSafety] = useState<Safety>("clear");
-  const nivelTimer = useRef(0);
+  const [ttfa, setTtfa] = useState<number | null>(null);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -91,43 +92,74 @@ export default function App() {
     setMaquina((m) => transition(m, evento));
   }, []);
 
-  useEffect(() => {
-    if (maquina.state !== "LISTENING" && maquina.state !== "USER_SPEAKING") {
-      setNivel(0);
-      return;
-    }
-    nivelTimer.current = window.setInterval(() => {
-      setNivel(Math.random() * (maquina.state === "USER_SPEAKING" ? 0.9 : 0.25));
-    }, 90);
-    return () => window.clearInterval(nivelTimer.current);
-  }, [maquina.state]);
+  // La sesión de voz vive en un ref: sobrevive a los renders y sólo hay una.
+  const sesion = useRef<VoiceSession | null>(null);
 
-  const tocarOrbe = () => {
+  const abrirSesion = useCallback(async () => {
+    const s = new VoiceSession({
+      onEvent: enviarEvento,
+      onLevel: setNivel,
+      onTranscript: (text, role) =>
+        setTurnos((v) => [...v, { role: role === "USER" ? "user" : "coach", text }]),
+      onTtfa: (ms) => setTtfa(ms),
+    });
+    sesion.current = s;
+    try {
+      await s.start(userId);
+    } catch (e) {
+      enviarEvento({ type: "ERROR", message: e instanceof Error ? e.message : "no pude conectar" });
+      sesion.current = null;
+    }
+  }, [enviarEvento, userId]);
+
+  const cerrarSesion = useCallback(async () => {
+    await sesion.current?.stop();
+    sesion.current = null;
+    setNivel(0);
+  }, []);
+
+  // Cerrar la sesión al desmontar: un WebSocket y un micrófono abiertos
+  // sobreviven a la pantalla si nadie los recoge.
+  useEffect(() => {
+    return () => {
+      void sesion.current?.stop();
+    };
+  }, []);
+
+  const tocarOrbe = async () => {
     if (maquina.state === "IDLE" || maquina.state === "ERROR") {
       enviarEvento({ type: "MIC_CLICK" });
-      // El gesto del usuario es lo que abre el AudioContext en iOS Safari, así
-      // que la petición cuelga directamente del toque y no de un efecto.
-      navigator.mediaDevices
-        ?.getUserMedia({ audio: true })
-        .then(() => {
-          enviarEvento({ type: "MIC_GRANTED" });
-          window.setTimeout(() => enviarEvento({ type: "STREAM_READY" }), 400);
-        })
-        .catch(() => enviarEvento({ type: "MIC_DENIED" }));
+      // Este `await` cuelga directamente del gesto del usuario, que es lo que
+      // iOS Safari exige para dejar abrir el AudioContext. Meterlo en un
+      // efecto lo rompe en iPhone y en ningún otro sitio.
+      try {
+        const flujo = await navigator.mediaDevices.getUserMedia({ audio: true });
+        flujo.getTracks().forEach((t) => t.stop());
+      } catch {
+        enviarEvento({ type: "MIC_DENIED" });
+        return;
+      }
+      enviarEvento({ type: "MIC_GRANTED" });
+      await abrirSesion();
       return;
     }
     if (maquina.state === "INTERRUPTIBLE") {
       enviarEvento({ type: "COACH_ENDED" });
       return;
     }
+    await cerrarSesion();
     enviarEvento({ type: "HANG_UP" });
   };
 
   const escribir = (texto: string) => {
     setTurnos((v) => [...v, { role: "user", text: texto }]);
-    window.setTimeout(() => {
-      setTurnos((v) => [...v, { role: "coach", text: t("stTool") }]);
-    }, 600);
+    if (sesion.current) {
+      sesion.current.sendText(texto);
+      return;
+    }
+    // Sin sesión abierta el texto no tiene por dónde salir. Decirlo es mejor
+    // que tragárselo y dejar al corredor esperando una respuesta que no viene.
+    setTurnos((v) => [...v, { role: "coach", text: t("stIdle") }]);
   };
 
   const terminarOnboarding = async (perfil: HardProfile) => {
@@ -187,6 +219,7 @@ export default function App() {
           setSafety("clear");
         }}
         onUpload={() => setPantalla("captura")}
+        ttfaMs={ttfa}
       />
 
       {/* Volver a ver el primer arranque sin borrar datos a mano. Está aquí

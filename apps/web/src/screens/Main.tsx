@@ -41,6 +41,8 @@ interface Props {
   onSend: (text: string) => void;
   onAcknowledge: () => void;
   onUpload: () => void;
+  /** Latencia real del último turno, en ms (ADR 0012). */
+  ttfaMs?: number | null;
 }
 
 export function Main({
@@ -56,6 +58,7 @@ export function Main({
   onSend,
   onAcknowledge,
   onUpload,
+  ttfaMs,
 }: Props) {
   const { t } = useT();
   const [texto, setTexto] = useState("");
@@ -95,6 +98,13 @@ export function Main({
 
           <div className="flex items-stretch justify-between border-b border-ink-15">
             <SafetyKey level={safety} />
+            {/* La latencia medida, no prometida. Sale del primer chunk de
+                audio del coach y es lo que va al README. */}
+            {ttfaMs !== null && ttfaMs !== undefined && (
+              <span className="label fig self-center px-2" title="tiempo hasta el primer audio">
+                {ttfaMs} ms
+              </span>
+            )}
             <button
               type="button"
               onClick={onUpload}

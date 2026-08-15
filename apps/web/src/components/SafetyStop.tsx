@@ -65,7 +65,7 @@ export function SafetyStop({
         </div>
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="animate-[stamp_420ms_cubic-bezier(0.2,1.4,0.4,1)_both] -rotate-[9deg] border-[3px] border-flag px-6 py-2 text-3xl font-bold tracking-[0.18em] text-flag">
+          <p className="animate-[stamp_260ms_cubic-bezier(0.16,1,0.3,1)_both] -rotate-[9deg] border-[3px] border-flag px-6 py-2 text-3xl font-bold tracking-[0.18em] text-flag">
             {t("stampVoided")}
           </p>
         </div>

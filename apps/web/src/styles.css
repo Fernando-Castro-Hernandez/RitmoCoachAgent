@@ -125,13 +125,16 @@
   }
 }
 
-/* El sello cae, rebota apenas y se asienta. Es el único momento coreografiado
-   de la interfaz: la anulación tiene que sentirse como algo que ocurre, no como
-   un estado que ya estaba ahí. */
+/* El sello cae y se detiene en seco contra el papel. Es el único momento
+   coreografiado de la interfaz: la anulación tiene que sentirse como algo que
+   ocurre, no como un estado que ya estaba ahí.
+
+   Sin rebote: un sello de hule no es de goma espuma. La desaceleración es
+   exponencial, que es como se para un objeto real contra una superficie. */
 @keyframes stamp {
   from {
     opacity: 0;
-    transform: rotate(-9deg) scale(2.4);
+    transform: rotate(-9deg) scale(1.9);
   }
   60% {
     opacity: 1;

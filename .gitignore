@@ -49,3 +49,4 @@ spikes/captura_sintetica.png
 
 # Base de desarrollo local (sin Docker)
 ritmo-dev.db
+.impeccable/review/
