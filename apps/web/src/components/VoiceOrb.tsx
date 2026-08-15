@@ -109,14 +109,29 @@ export function VoiceOrb({ state, level, onClick }: Props) {
       lienzo.width = Math.round(ancho * dpr);
       lienzo.height = Math.round(112 * dpr);
     };
+    // Redimensionar limpia el lienzo, así que hay que volver a pintarlo. Si el
+    // bucle está dormido —y en reposo lo está— nadie lo haría, y el orbe se
+    // quedaría en blanco al girar el teléfono. Se descubrió capturando: la
+    // captura de página completa redimensiona, y el orbe salió vacío.
+    const remedir = () => {
+      medir();
+      arrancar();
+    };
     medir();
-    window.addEventListener("resize", medir);
+    window.addEventListener("resize", remedir);
 
     // A 30 fps. La tinta se difunde despacio; sesenta fotogramas por segundo no
     // se ven mejor y sí se notan en la batería de un teléfono que va en el
     // bolsillo durante una hora de carrera.
     const PASO_MS = 1000 / 30;
     let ultimo = 0;
+
+    const arrancar = () => {
+      if (!raf) {
+        ultimo = 0;
+        raf = requestAnimationFrame(pintar);
+      }
+    };
 
     const pintar = (ms: number) => {
       if (!t0) t0 = ms;
@@ -195,12 +210,6 @@ export function VoiceOrb({ state, level, onClick }: Props) {
       raf = requestAnimationFrame(pintar);
     };
 
-    const arrancar = () => {
-      if (!raf) {
-        ultimo = 0;
-        raf = requestAnimationFrame(pintar);
-      }
-    };
     arrancar();
     // Se despierta cuando cambia el estado o cuando la pestaña vuelve al frente.
     const observador = window.setInterval(arrancar, 250);
@@ -209,7 +218,7 @@ export function VoiceOrb({ state, level, onClick }: Props) {
     return () => {
       cancelAnimationFrame(raf);
       window.clearInterval(observador);
-      window.removeEventListener("resize", medir);
+      window.removeEventListener("resize", remedir);
       document.removeEventListener("visibilitychange", arrancar);
     };
   }, []);

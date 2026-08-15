@@ -34,6 +34,30 @@ import {
 
 type Pantalla = "cargando" | "onboarding" | "hoja" | "captura";
 
+/**
+ * Forzar un estado desde la URL: `?estado=safety-red`, `?estado=listening`…
+ *
+ * Existe para poder capturar y ensayar estados que sólo aparecen en vivo —el
+ * formulario anulado, el error de red, el micrófono denegado— sin tener que
+ * provocarlos de verdad. Lo usa el guion de capturas y sirve para el video.
+ *
+ * No es una puerta trasera: sólo pinta estados de interfaz. No salta la puerta
+ * de seguridad del backend ni escribe nada; el veredicto real sigue viniendo
+ * del motor, y forzar «safety-red» aquí no le da permiso a nadie de prescribir.
+ */
+function estadoForzado() {
+  const p = new URLSearchParams(window.location.search).get("estado");
+  return {
+    voice: (
+      { listening: "LISTENING", speaking: "SPEAKING", thinking: "THINKING",
+        error: "ERROR", connecting: "CONNECTING" } as const
+    )[p ?? ""],
+    safety: p === "safety-red" ? ("flag" as const) : p === "safety-amber" ? ("caution" as const) : undefined,
+    micDenied: p === "mic-denied",
+    pantalla: p === "onboarding" ? ("onboarding" as const) : p === "upload" ? ("captura" as const) : undefined,
+  };
+}
+
 /* Plan de demostración. Se sustituye por GET /api/plan cuando el motor haya
    generado uno; hoy el corredor recién creado todavía no tiene plan, así que
    esto es lo que ve mientras la conversación recoge el contexto que falta. */
@@ -64,6 +88,7 @@ export default function App() {
   const [turnos, setTurnos] = useState<Turn[]>([]);
   const [safety, setSafety] = useState<Safety>("clear");
   const [ttfa, setTtfa] = useState<number | null>(null);
+  const forzado = useState(estadoForzado)[0];
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -75,18 +100,18 @@ export default function App() {
     fetchProfile(userId)
       .then((p) => {
         if (!vivo) return;
-        setPantalla(p?.carousel_done ? "hoja" : "onboarding");
+        setPantalla(forzado.pantalla ?? (p?.carousel_done ? "hoja" : "onboarding"));
       })
       .catch(() => {
         // Sin backend la aplicación no se queda en blanco: se entra al
         // carrusel, que es donde un corredor nuevo tiene que estar de todos
         // modos, y el guardado avisará si sigue caído.
-        if (vivo) setPantalla("onboarding");
+        if (vivo) setPantalla(forzado.pantalla ?? "onboarding");
       });
     return () => {
       vivo = false;
     };
-  }, [userId]);
+  }, [userId, forzado.pantalla]);
 
   const enviarEvento = useCallback((evento: VoiceEvent) => {
     setMaquina((m) => transition(m, evento));
@@ -212,12 +237,12 @@ export default function App() {
     <Main
         ctx={CTX_DEMO}
         session={{ ...SESION_DEMO, why: t("demoWhy") }}
-        safety={safety}
+        safety={forzado.safety ?? safety}
         referral={t("demoReferral")}
         turns={turnos}
-        voice={maquina.state}
-        level={nivel}
-        micDenied={maquina.context.micDenied}
+        voice={forzado.voice ?? maquina.state}
+        level={forzado.voice === "LISTENING" ? 0.55 : nivel}
+        micDenied={forzado.micDenied || maquina.context.micDenied}
         onOrbClick={tocarOrbe}
         onSend={escribir}
         onAcknowledge={() => {
