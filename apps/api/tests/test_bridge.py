@@ -183,3 +183,65 @@ async def test_close_cierra_el_prompt_y_la_sesion() -> None:
     tipos = tipos_enviados(stream)
     assert tipos[-3:] == ["contentEnd", "promptEnd", "sessionEnd"]
     assert stream.input_stream.closed
+
+
+async def test_la_transcripcion_del_usuario_no_se_pierde(hacer_stream) -> None:
+    """Regresión: el corredor hablaba y su turno no llegaba nunca al navegador.
+
+    La deduplicación especulativa/FINAL existe porque el modelo emite cada
+    respuesta SUYA dos veces. Pero lo que dijo el usuario llega una sola vez y
+    marcado FINAL, así que la misma regla lo borraba. El resultado era una
+    conversación donde sólo se veía hablar al coach.
+    """
+    stream = hacer_stream(
+        [
+            {
+                "event": {
+                    "contentStart": {
+                        "role": "USER",
+                        "additionalModelFields": '{"generationStage":"FINAL"}',
+                    }
+                }
+            },
+            {"event": {"textOutput": {"content": "me duele la rodilla", "role": "USER"}}},
+            {"event": {"contentStart": {"role": "ASSISTANT"}}},
+            {"event": {"textOutput": {"content": "¿en qué parte?", "role": "ASSISTANT"}}},
+            {"event": {"completionEnd": {}}},
+        ]
+    )
+    bridge = NovaBridge(stream=stream)
+    await bridge.start("eres un coach")
+
+    roles = []
+    async for evento in bridge.events():
+        if evento.kind == "transcript":
+            roles.append((evento.payload["role"], evento.payload["text"]))
+        elif evento.kind == "turn_end":
+            break
+
+    assert ("USER", "me duele la rodilla") in roles
+    assert ("ASSISTANT", "¿en qué parte?") in roles
+
+
+async def test_el_coach_sigue_sin_duplicarse(hacer_stream) -> None:
+    """Y la deduplicación que motivó todo esto tiene que seguir en pie."""
+    stream = hacer_stream(
+        [
+            {"event": {"contentStart": {"role": "ASSISTANT"}}},
+            {"event": {"textOutput": {"content": "hola", "role": "ASSISTANT"}}},
+            {
+                "event": {
+                    "contentStart": {
+                        "role": "ASSISTANT",
+                        "additionalModelFields": '{"generationStage":"FINAL"}',
+                    }
+                }
+            },
+            {"event": {"textOutput": {"content": "hola", "role": "ASSISTANT"}}},
+            {"event": {"completionEnd": {}}},
+        ]
+    )
+    bridge = NovaBridge(stream=stream)
+    await bridge.start("eres un coach")
+
+    assert await transcripciones(bridge) == ["hola"]

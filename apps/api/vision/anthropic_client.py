@@ -58,7 +58,11 @@ class AnthropicVisionClient:
     def __init__(self, model: str | None = None, api_key: str | None = None) -> None:
         ajustes = get_settings()
         self._model = model or ajustes.vision_models[0]
-        self._api_key = api_key or ajustes.anthropic_api_key
+        # `is not None` y no `or`: una cadena vacía explícita significa «sin
+        # clave», no «usa la del entorno». Con `or`, pasar "" caía al valor
+        # configurado y la prueba que verificaba el fallo sin clave acababa
+        # haciendo una llamada real a la API.
+        self._api_key = api_key if api_key is not None else ajustes.anthropic_api_key
 
     async def extract(
         self,

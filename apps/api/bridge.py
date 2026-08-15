@@ -197,7 +197,14 @@ class NovaBridge:
 
     def _translate(self, evento: dict[str, Any]) -> BridgeEvent | None:
         if "contentStart" in evento:
-            self._emitir_texto = _debe_emitir(evento["contentStart"])
+            inicio = evento["contentStart"]
+            rol = inicio.get("role", "ASSISTANT")
+            # La deduplicación especulativa/FINAL es del habla del COACH: el
+            # modelo emite cada respuesta suya dos veces y hay que quedarse con
+            # una. La transcripción de lo que dijo el USUARIO llega una sola vez
+            # y viene marcada FINAL, así que aplicarle la misma regla la borra
+            # entera — el corredor hablaba y su turno no aparecía nunca.
+            self._emitir_texto = rol == "USER" or _debe_emitir(inicio)
             return None
 
         if "audioOutput" in evento:
