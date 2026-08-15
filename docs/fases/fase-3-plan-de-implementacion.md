@@ -70,7 +70,7 @@ Hoy es **viernes 14 de agosto**. Entrega el **lunes 17 a las 16:00**.
 | Fase | Cuándo | Horas | Entregable verificable |
 |---|---|---|---|
 | **A · Cimientos y de-risking** | Viernes tarde | ~5 h | ✅ **Hecha.** Se oye la voz del coach en el navegador y la sesión se renueva sola |
-| **B · Motor de dominio** | Sábado mañana | ~5 h | Suite verde, ninguna propiedad violada |
+| **B · Motor de dominio** | Sábado mañana | ~5 h | ✅ **Hecha.** 213 pruebas verdes, dominio al 98 %, ninguna propiedad violada |
 | **C · El coach** | Sábado tarde | ~8 h | Conversación real que genera y ajusta un plan; una captura de reloj entra a la bitácora |
 | **D · Interfaz** | Domingo mañana | ~8 h | Aplicación usable en móvil, con onboarding y subida de capturas |
 | **E · Proactivo y observabilidad** | Domingo tarde | ~5 h | Llega un Telegram; hay métricas |
@@ -1196,6 +1196,39 @@ print('dominio puro ✓')"
 git add packages/coach_domain/plans packages/tests/test_plans.py
 git commit -m "feat(dominio): generación de planes 5k/10k/21k/42k validada por invariantes"
 ```
+
+---
+
+## Qué se aprendió construyendo la Fase B
+
+Tres correcciones que sólo aparecieron al escribir el código, y que cambian el
+diseño que traía el plan. Se anotan aquí porque son el tipo de cosa que hay que
+poder explicar, no esconder.
+
+**1 · El volumen decaía en vez de crecer.** El diseño original hacía que cada
+semana progresara desde la anterior, incluida la de descarga. Encadenarlas hace
+que el plan encoja: con descarga cada cuatro semanas y un tope del 5 %, un ciclo
+completo es `1.05³ × 0.70 = 0.81` del volumen inicial. Decaía para los cuatro
+niveles — incluso el avanzado se queda en 0.93. Ahora la progresión salta las
+descargas y mide contra la última semana de carga normal: **la descarga
+interrumpe la progresión, no la reinicia.** Eso obligó a introducir
+`previous_reference()`, porque R1 arrastraba el mismo error de referencia.
+
+**2 · El tope de incremento no puede indexarse sólo por distancia.** La matriz
+de la Fase 1 asigna el 10 % al maratón porque asume que quien corre un maratón
+es avanzado. El principiante que se apunta a un maratón existe, y es el corredor
+que más se lesiona. El tope real es ahora el mínimo entre el de la distancia y
+el del nivel.
+
+**3 · El guardián `_assert_legal` se ganó su sitio.** Es redundante con la
+construcción a propósito, y encontró los dos bugs de arriba antes de que
+existiera una sola línea de interfaz. Se queda.
+
+Consecuencia para las fases siguientes: las firmas cambiaron respecto a lo que
+este plan escribió el viernes. `next_week_volume` y `validate_week` reciben
+ahora también el `Level`, y `build_plan(profile, distance, race_date, today)`
+recibe la distancia explícita porque `AthleteProfile` no la lleva. La fuente de
+verdad es el código.
 
 ---
 
