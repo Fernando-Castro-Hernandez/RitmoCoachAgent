@@ -62,15 +62,20 @@ Config(
 )
 ```
 
-`smithy` **no tiene resolvedor de perfil de AWS**. En local hay que exportar las
-credenciales antes de correr:
+`smithy` **no tiene resolvedor de perfil de AWS**: sólo lee variables de entorno
+o IMDS. Exportarlas a mano antes de arrancar funciona, pero la sintaxis cambia
+según la terminal —`eval "$(aws configure export-credentials --format env)"` en
+bash, `aws configure export-credentials --format powershell | Invoke-Expression`
+en PowerShell— y olvidarlo produce un fallo confuso a mitad de sesión.
 
-```bash
-eval "$(aws configure export-credentials --format env)"
-```
+Por eso `apps/api/credentials.py` las resuelve al arrancar: si las variables no
+están puestas, se las pregunta al AWS CLI con
+`aws configure export-credentials --format process`, que sí entiende perfiles,
+SSO y roles asumidos. `/api/config` reporta `aws_credentials_resolved` para
+confirmarlo de un vistazo.
 
-En producción se usa `IMDSCredentialsResolver`, que toma el rol de instancia del
-EC2 sin credenciales estáticas (ADR 0008).
+En producción no interviene: el rol de instancia del EC2 llega por IMDS y las
+variables ya vienen puestas (ADR 0008).
 
 ### Secuencia de eventos
 

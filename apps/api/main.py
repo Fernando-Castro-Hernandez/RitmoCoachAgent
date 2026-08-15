@@ -7,15 +7,28 @@ C2. Por ahora expone salud y configuración para que el compose sea verificable.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from coach_domain import __version__ as domain_version
 from fastapi import FastAPI
 
+from apps.api.credentials import ensure_aws_credentials
 from apps.api.prompts import VERSION as PROMPT_VERSION
 from apps.api.ws import router as ws_router
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Se resuelven al arrancar, no en cada sesión: si faltan, el problema se ve
+    # en el log de inicio y no a mitad de una conversación.
+    ensure_aws_credentials()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Ritmo",
     description="Coach de voz conversacional para runners de 5K a maratón",
     version="0.1.0",
@@ -44,6 +57,7 @@ def config() -> dict[str, Any]:
         "model_id": os.getenv("NOVA_MODEL_ID", "amazon.nova-2-sonic-v1:0"),
         "voice_id": os.getenv("NOVA_VOICE_ID", "carlos"),
         "prompt_version": PROMPT_VERSION,
+        "aws_credentials_resolved": bool(os.getenv("AWS_ACCESS_KEY_ID")),
         "telegram_configured": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
         "langfuse_configured": bool(os.getenv("LANGFUSE_PUBLIC_KEY")),
     }
