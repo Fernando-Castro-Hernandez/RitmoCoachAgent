@@ -202,17 +202,65 @@ model.
 Es un trámite único en la consola de Bedrock, no un problema de permisos ni de
 cuota. Queda anotado como paso manual de despliegue.
 
-### Consecuencia de diseño: respaldo entre modelos
+### 4 · El bloqueo no era del modelo, era de la cuenta
 
-Los dos fallos son transitorios y de causas distintas, así que la ruta de visión
-usa un `FallbackVisionClient`: intenta con el principal y cae al de respaldo si
-el error es recuperable —throttling, formulario pendiente, modelo no listo— y
-propaga el error si no lo es. Un formato de imagen inválido fallaría igual en
-los dos modelos, y reintentarlo sólo duplicaría la espera del usuario.
+Al intentar cambiar el modelo principal a Claude Haiku 4.5 apareció lo que
+convierte los tres hallazgos anteriores en uno solo:
 
-No es sobreingeniería defensiva: los dos modos de fallo se encontraron
-verificando, no imaginando. Que la ruta se degrade en vez de caerse es la
-diferencia entre una demo que sobrevive al lunes y una que no.
+```console
+$ aws service-quotas list-service-quotas --service-code bedrock \
+    --region us-east-1 --query "Quotas[?contains(QuotaName,'tokens per day')]"
+Nova 2 Lite ........... 0.0
+Nova Pro .............. 0.0
+Nova Premier .......... 0.0
+Claude Haiku 4.5 ...... 0.0
+Claude Sonnet 4.5 ..... 0.0
+Claude Opus 4.5 ....... 0.0
+```
+
+**Todos** los modelos con visión de la cuenta están en cero, y se comprobó
+ejecutando: los seis devuelven `ThrottlingException`. Y por separado:
+
+```console
+$ aws bedrock get-foundation-model-availability \
+    --model-id anthropic.claude-haiku-4-5-20251001-v1:0
+{ "agreementAvailability": { "status": "NOT_AVAILABLE" },
+  "authorizationStatus": "AUTHORIZED",
+  "entitlementAvailability": "AVAILABLE" }
+```
+
+Todos los modelos de Anthropic salen `NOT_AVAILABLE`; todos los de Amazon,
+`AVAILABLE`. El acuerdo es **por proveedor**, no por modelo.
+
+La conclusión cambia el diseño: **elegir bien el modelo no resuelve nada.** La
+cuenta es nueva y las cuotas se levantan solas en su ciclo diario; hasta
+entonces ningún modelo con visión responde. Cualquier decisión de la forma «el
+modelo principal será X» es una apuesta sobre qué se desbloquea primero.
+
+### Consecuencia de diseño: cadena configurable y degradación a manual
+
+Dos cambios, y ninguno es sobreingeniería defensiva — los cuatro modos de fallo
+se encontraron ejecutando, no imaginando.
+
+**Una cadena, no un modelo.** `VISION_MODEL_CHAIN` es una lista ordenada por
+preferencia. `ChainVisionClient` la recorre hasta que uno responde, saltando los
+errores recuperables —cuota, acuerdo pendiente, modelo no listo, perfil de
+inferencia— y propagando los que no lo son: un formato de imagen inválido
+fallaría igual en todos, y seguir la cadena sólo multiplicaría la espera. Así
+**desbloquear cualquiera de los modelos hace funcionar la ruta sin tocar código
+ni volver a desplegar**, que es exactamente la flexibilidad que hace falta
+cuando no se sabe cuál se levantará primero.
+
+**Y si no responde ninguno, se degrada a captura manual.** El endpoint no
+devuelve 502: devuelve `mode: "manual"` con los campos vacíos y editables. El
+corredor teclea cuatro números y sigue con su vida. Un entrenamiento sin
+registrar contamina la progresión igual que una cifra mal leída, así que la
+peor salida posible es una pantalla de error.
+
+Esto reordena la tesis del pivote, y para bien: **la visión es una comodidad,
+no un requisito.** Lo que sustituye a la integración con Garmin no es el modelo
+de visión — es no exigir OAuth. Escribir cuatro números sigue siendo más rápido
+que registrar una aplicación en Strava.
 
 ## Alternativas descartadas
 

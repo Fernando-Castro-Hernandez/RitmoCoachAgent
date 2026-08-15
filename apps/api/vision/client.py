@@ -129,27 +129,30 @@ def _primer_tool_use(respuesta: dict[str, Any]) -> dict[str, Any]:
     raise VisionError("el modelo no invocó la herramienta de extracción")
 
 
-class FallbackVisionClient:
-    """Intenta con el modelo principal y cae al de respaldo si falla.
+class ChainVisionClient:
+    """Recorre una lista de modelos hasta que uno responde.
 
-    No es sobreingeniería: los dos modos de fallo son reales y los dos se
-    encontraron verificando contra la cuenta de verdad.
+    No es sobreingeniería defensiva: los tres modos de fallo son reales y los
+    tres se encontraron verificando contra la cuenta, no imaginando.
 
     - `ThrottlingException` con «Too many tokens per day». La cuota de tokens
       diarios que el ADR 0002 encontró en 0 **sí** gobierna a los modelos de
-      texto y visión, aunque no gobernara al de voz. Es el mismo número, y por
-      fin se ve el efecto que allá no se vio.
+      texto y visión, aunque no gobernara al de voz. En esta cuenta está en 0
+      para los seis modelos con visión.
     - `ResourceNotFoundException` con «use case details have not been
-      submitted». Los modelos de Anthropic exigen rellenar un formulario en la
-      consola antes del primer uso.
+      submitted». Los modelos de Anthropic exigen un acuerdo aceptado, y el
+      estado se consulta con `get-foundation-model-availability`.
+    - `AccessDeniedException` cuando el modelo no está habilitado en la región.
 
-    Que la ruta de visión sobreviva a cualquiera de los dos es la diferencia
-    entre una demo que se cae y una que se degrada.
+    El fallo resultó ser de **disponibilidad de cuenta**, no de capacidad del
+    modelo, así que la respuesta correcta es una lista configurable: desbloquear
+    cualquiera de ellos hace funcionar la ruta sin tocar código.
     """
 
-    def __init__(self, primary: VisionClient, fallback: VisionClient) -> None:
-        self._primary = primary
-        self._fallback = fallback
+    def __init__(self, clients: list[VisionClient]) -> None:
+        if not clients:
+            raise ValueError("hace falta al menos un modelo de visión")
+        self._clients = clients
 
     async def extract(
         self,
@@ -158,26 +161,41 @@ class FallbackVisionClient:
         prompt: str,
         schema: dict[str, Any],
     ) -> dict[str, Any]:
-        try:
-            return await self._primary.extract(images, prompt=prompt, schema=schema)
-        except Exception as exc:
-            if not _es_recuperable(exc):
-                raise
-            log.warning("vision.fallback", error=type(exc).__name__, detalle=str(exc)[:160])
-            return await self._fallback.extract(images, prompt=prompt, schema=schema)
+        ultimo: Exception | None = None
+        for indice, cliente in enumerate(self._clients):
+            try:
+                return await cliente.extract(images, prompt=prompt, schema=schema)
+            except Exception as exc:
+                if not _es_recuperable(exc):
+                    raise
+                ultimo = exc
+                log.warning(
+                    "vision.modelo_no_disponible",
+                    intento=indice + 1,
+                    de=len(self._clients),
+                    error=type(exc).__name__,
+                    detalle=str(exc)[:160],
+                )
+        raise AllVisionModelsUnavailableError(
+            f"ninguno de los {len(self._clients)} modelos de visión respondió"
+        ) from ultimo
 
 
-# Errores que justifican reintentar con el otro modelo. Un formato de imagen
-# inválido o un esquema mal formado fallarían igual en los dos, y reintentarlos
-# sólo duplicaría la espera del usuario.
+class AllVisionModelsUnavailableError(VisionError):
+    """Se agotó la cadena. La interfaz degrada a captura manual (tarea D6)."""
+
+
+# Errores que justifican reintentar con el siguiente modelo. Un formato de
+# imagen inválido o un esquema mal formado fallarían igual en todos, y
+# reintentarlos sólo duplicaría la espera del usuario.
 _RECUPERABLES = (
     "ThrottlingException",
     "ResourceNotFoundException",
     "ServiceUnavailableException",
     "ModelNotReadyException",
     "AccessDeniedException",
+    "ValidationException",
 )
-
 
 # Frases que identifican el fallo aunque el tipo de excepción no ayude. Las dos
 # primeras son literales de lo que devolvió Bedrock al verificar contra la
@@ -188,15 +206,15 @@ _FRASES_RECUPERABLES = (
     "throttl",
     "not ready",
     "try again",
+    "on-demand throughput",
 )
 
 
 def _es_recuperable(exc: Exception) -> bool:
-    """Si vale la pena reintentar con el otro modelo.
+    """Si vale la pena seguir con el siguiente modelo de la cadena.
 
     Se mira por tres vías porque botocore no da una sola fiable: el código de
-    error de la respuesta, el nombre de la clase, y el texto. Un formato de
-    imagen inválido fallaría igual en los dos modelos, así que ése no entra.
+    error de la respuesta, el nombre de la clase, y el texto.
     """
     respuesta = getattr(exc, "response", None)
     if isinstance(respuesta, dict):

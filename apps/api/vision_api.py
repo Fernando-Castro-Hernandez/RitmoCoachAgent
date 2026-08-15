@@ -21,8 +21,9 @@ from apps.api.config import get_settings
 from apps.api.db.session import get_session
 from apps.api.vision.client import (
     MAX_IMAGE_BYTES,
+    AllVisionModelsUnavailableError,
     BedrockVisionClient,
-    FallbackVisionClient,
+    ChainVisionClient,
     VisionClient,
     VisionError,
 )
@@ -42,11 +43,8 @@ TIPOS_ACEPTADOS = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 def get_vision_client() -> VisionClient:
     """Dependencia sustituible: las pruebas inyectan un cliente falso."""
-    ajustes = get_settings()
-    return FallbackVisionClient(
-        BedrockVisionClient(ajustes.vision_model_id),
-        BedrockVisionClient(ajustes.vision_fallback_model_id),
-    )
+    modelos = get_settings().vision_models
+    return ChainVisionClient([BedrockVisionClient(m) for m in modelos])
 
 
 ClienteVision = Annotated[VisionClient, Depends(get_vision_client)]
@@ -74,6 +72,20 @@ async def leer_captura(
 
     try:
         extraccion = await extract_workout(cliente, datos, file.content_type or "image/jpeg")
+    except AllVisionModelsUnavailableError as exc:
+        # Se agotó la cadena de modelos. NO es un 502: la respuesta correcta es
+        # degradar a captura manual, con los campos vacíos y editables. El
+        # corredor teclea cuatro números y sigue con su vida; una pantalla de
+        # error le deja el entrenamiento sin registrar.
+        log.warning("vision.workout.sin_modelos", user_id=user_id, error=str(exc))
+        return {
+            "ok": False,
+            "mode": "manual",
+            "reason": ("Ahorita no puedo leer la imagen. Escribe los números y seguimos igual."),
+            "fields": ["distance_km", "duration_sec", "avg_hr"],
+            "extraction": None,
+            "proposed": None,
+        }
     except VisionError as exc:
         log.warning("vision.workout.fallo", user_id=user_id, error=str(exc))
         raise HTTPException(502, f"no pude leer la imagen: {exc}") from exc

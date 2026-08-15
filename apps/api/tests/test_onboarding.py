@@ -348,3 +348,33 @@ def test_el_modelo_de_vision_aparece_en_la_configuracion(cliente: TestClient) ->
     cuerpo = cliente.get("/api/config").json()
     assert "nova-2-lite" in cuerpo["vision_model_id"]
     assert cuerpo["model_id"] != cuerpo["vision_model_id"]
+
+
+class ClienteVisionCaido:
+    async def extract(self, images: Any, *, prompt: str, schema: Any) -> dict[str, Any]:
+        from apps.api.vision.client import AllVisionModelsUnavailableError
+
+        raise AllVisionModelsUnavailableError("ninguno de los 2 modelos respondió")
+
+
+def test_sin_modelos_disponibles_se_degrada_a_captura_manual(cliente: TestClient) -> None:
+    """No es un 502.
+
+    Si Bedrock no responde, el corredor teclea cuatro números y sigue con su
+    vida. Una pantalla de error le deja el entrenamiento sin registrar, y el
+    entrenamiento sin registrar contamina la progresión igual que una cifra mal
+    leída. La ruta de visión es una comodidad, no un requisito.
+    """
+    app.dependency_overrides[get_vision_client] = ClienteVisionCaido
+    r = cliente.post(
+        "/api/vision/workout",
+        data={"user_id": "u1"},
+        files={"file": ("reloj.jpg", b"x", "image/jpeg")},
+    )
+    app.dependency_overrides.pop(get_vision_client, None)
+
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["mode"] == "manual"
+    assert "distance_km" in cuerpo["fields"]
+    assert "Escribe los números" in cuerpo["reason"]

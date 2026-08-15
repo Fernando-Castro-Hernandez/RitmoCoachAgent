@@ -11,7 +11,12 @@ from typing import Any
 
 import pytest
 
-from apps.api.vision.client import VisionError, _primer_tool_use
+from apps.api.vision.client import (
+    AllVisionModelsUnavailableError,
+    ChainVisionClient,
+    VisionError,
+    _primer_tool_use,
+)
 from apps.api.vision.schemas import WORKOUT_SCHEMA, WorkoutExtraction
 from apps.api.vision.workout import (
     EXTRACTION_PROMPT,
@@ -202,7 +207,7 @@ def test_un_json_roto_falla_con_el_texto_a_la_vista() -> None:
         _primer_tool_use(respuesta)
 
 
-# ── respaldo entre modelos ───────────────────────────────────────────
+# ── cadena de modelos ────────────────────────────────────────────────
 
 
 class ClienteQueFalla:
@@ -219,61 +224,93 @@ class ThrottlingException(Exception):  # noqa: N818
     """Mismo nombre que la excepción de botocore, sin arrastrar botocore."""
 
 
+class ResourceNotFoundException(Exception):  # noqa: N818
+    pass
+
+
 class FormatoInvalidoError(Exception):
     pass
 
 
-async def test_una_cuota_agotada_cae_al_modelo_de_respaldo() -> None:
-    """El caso real: la cuota de tokens diarios en 0 del ADR 0002 sí gobierna
-    a los modelos de visión, aunque no gobernara al de voz."""
-    from apps.api.vision.client import FallbackVisionClient
-
+async def test_una_cuota_agotada_pasa_al_siguiente_modelo() -> None:
+    """El caso real: la cuota de tokens diarios está en 0 para los seis modelos
+    con visión de esta cuenta."""
     principal = ClienteQueFalla(ThrottlingException("Too many tokens per day"))
     respaldo = ClienteFalso({"confidence": "high", "unreadable_fields": [], "distance_km": 8.0})
-    cliente = FallbackVisionClient(principal, respaldo)
+    cliente = ChainVisionClient([principal, respaldo])
 
     salida = await cliente.extract([(b"x", "image/png")], prompt="p", schema={})
     assert principal.llamado
     assert salida["distance_km"] == 8.0
 
 
-async def test_un_modelo_sin_formulario_tambien_cae_al_respaldo() -> None:
-    """Los modelos de Anthropic exigen rellenar un formulario de caso de uso
-    en la consola antes del primer uso."""
-    from apps.api.vision.client import FallbackVisionClient
-
+async def test_un_acuerdo_pendiente_tambien_pasa_al_siguiente() -> None:
+    """Los modelos de Anthropic exigen un acuerdo aceptado antes del primer uso.
+    Se consulta con `get-foundation-model-availability`."""
     error = ResourceNotFoundException("Model use case details have not been submitted")
-    cliente = FallbackVisionClient(
-        ClienteQueFalla(error), ClienteFalso({"confidence": "low", "unreadable_fields": []})
+    cliente = ChainVisionClient(
+        [ClienteQueFalla(error), ClienteFalso({"confidence": "low", "unreadable_fields": []})]
     )
     salida = await cliente.extract([(b"x", "image/png")], prompt="p", schema={})
     assert salida["confidence"] == "low"
 
 
-class ResourceNotFoundException(Exception):  # noqa: N818
-    pass
+async def test_recorre_la_cadena_entera_antes_de_rendirse() -> None:
+    primero = ClienteQueFalla(ThrottlingException("Too many tokens per day"))
+    segundo = ClienteQueFalla(ResourceNotFoundException("use case details"))
+    tercero = ClienteFalso({"confidence": "high", "unreadable_fields": []})
+
+    await ChainVisionClient([primero, segundo, tercero]).extract(
+        [(b"x", "image/png")], prompt="p", schema={}
+    )
+    assert primero.llamado
+    assert segundo.llamado
+
+
+async def test_si_ninguno_responde_lo_dice_con_su_propio_error() -> None:
+    """Es lo que la interfaz distingue para degradar a captura manual en vez de
+    enseñar una pantalla de error."""
+    cadena = ChainVisionClient(
+        [
+            ClienteQueFalla(ThrottlingException("Too many tokens per day")),
+            ClienteQueFalla(ThrottlingException("Too many tokens per day")),
+        ]
+    )
+    with pytest.raises(AllVisionModelsUnavailableError, match="ninguno de los 2"):
+        await cadena.extract([(b"x", "image/png")], prompt="p", schema={})
 
 
 async def test_un_error_que_fallaria_igual_no_se_reintenta() -> None:
-    """Un formato inválido falla en los dos modelos: reintentarlo sólo
-    duplicaría la espera del usuario."""
-    from apps.api.vision.client import FallbackVisionClient
-
+    """Un formato inválido falla en todos los modelos: seguir la cadena sólo
+    multiplicaría la espera del usuario."""
     respaldo = ClienteFalso({"confidence": "high", "unreadable_fields": []})
-    cliente = FallbackVisionClient(
-        ClienteQueFalla(FormatoInvalidoError("formato no soportado")), respaldo
-    )
+    cadena = ChainVisionClient([ClienteQueFalla(FormatoInvalidoError("formato raro")), respaldo])
 
     with pytest.raises(FormatoInvalidoError):
-        await cliente.extract([(b"x", "image/bmp")], prompt="p", schema={})
+        await cadena.extract([(b"x", "image/bmp")], prompt="p", schema={})
 
 
-async def test_si_el_principal_responde_el_respaldo_ni_se_toca() -> None:
-    from apps.api.vision.client import FallbackVisionClient
-
-    respaldo = ClienteQueFalla(RuntimeError("no debería llamarse"))
-    cliente = FallbackVisionClient(
-        ClienteFalso({"confidence": "high", "unreadable_fields": []}), respaldo
+async def test_si_el_primero_responde_los_demas_ni_se_tocan() -> None:
+    siguiente = ClienteQueFalla(RuntimeError("no debería llamarse"))
+    cadena = ChainVisionClient(
+        [ClienteFalso({"confidence": "high", "unreadable_fields": []}), siguiente]
     )
-    await cliente.extract([(b"x", "image/png")], prompt="p", schema={})
-    assert not respaldo.llamado
+    await cadena.extract([(b"x", "image/png")], prompt="p", schema={})
+    assert not siguiente.llamado
+
+
+def test_una_cadena_vacia_es_un_error_de_configuracion() -> None:
+    with pytest.raises(ValueError, match="al menos un modelo"):
+        ChainVisionClient([])
+
+
+def test_la_cadena_por_defecto_lleva_dos_modelos() -> None:
+    """Configurable por entorno: desbloquear cualquiera de los dos hace
+    funcionar la ruta sin tocar código ni volver a desplegar."""
+    from apps.api.config import Settings
+
+    modelos = Settings().vision_models
+    assert len(modelos) >= 2
+    assert all(m.startswith(("us.", "global.")) for m in modelos), (
+        "sin perfil de inferencia, Bedrock rechaza la invocación directa"
+    )
