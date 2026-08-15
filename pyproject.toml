@@ -46,12 +46,21 @@ package = false
 [tool.poe.tasks]
 dev        = "docker compose up --build"
 down       = "docker compose down"
+web        = "npm --prefix apps/web run dev"
 test       = "pytest packages apps -v"
 test-dom   = "pytest packages -v --cov=coach_domain --cov-fail-under=95"
 evals      = "python evals/run.py"
 fmt        = "ruff format ."
 purity     = "python scripts/check_domain_purity.py"
 deploy     = "bash infra/deploy.sh"
+
+# `python -m uvicorn` en vez del ejecutable: así el directorio actual entra en
+# sys.path y `apps.api` se importa. PYTHONPATH añade el motor de dominio.
+# El contenedor ya define ambos (infra/Dockerfile.api); esto es para local.
+[tool.poe.tasks.api]
+help = "API en local con recarga automática"
+cmd = "python -m uvicorn apps.api.main:app --reload --port 8000"
+env = { PYTHONPATH = "packages" }
 
 [tool.poe.tasks.lint]
 sequence = [

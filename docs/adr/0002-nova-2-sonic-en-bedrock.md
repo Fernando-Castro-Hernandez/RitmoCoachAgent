@@ -102,6 +102,16 @@ sessionEnd
    fue el fallo más difícil de diagnosticar porque no produce ningún error, sólo
    silencio.
 
+4. **Una entrada de sólo texto no dispara la generación por sí sola.** Con voz,
+   el modelo detecta el fin del turno por las pausas del hablante. Con texto no
+   hay pausa que detectar: hay que cerrar el bloque de audio abierto para marcar
+   el fin del turno, y abrir uno nuevo a continuación. Descubierto en la tarea A3,
+   con el mismo síntoma que la regla anterior — silencio sin error.
+
+5. **Un bloque de audio que nunca recibió datos no se puede cerrar:**
+   `Cannot end content as no content data was received`. En un turno de sólo
+   texto hay que rellenarlo con un frame de silencio antes del `contentEnd`.
+
 ### Formatos de audio
 
 | | Entrada | Salida |

@@ -12,6 +12,9 @@ from typing import Any
 from coach_domain import __version__ as domain_version
 from fastapi import FastAPI
 
+from apps.api.prompts import VERSION as PROMPT_VERSION
+from apps.api.ws import router as ws_router
+
 app = FastAPI(
     title="Ritmo",
     description="Coach de voz conversacional para runners de 5K a maratón",
@@ -19,6 +22,8 @@ app = FastAPI(
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
 )
+
+app.include_router(ws_router)
 
 
 @app.get("/api/health")
@@ -37,7 +42,8 @@ def config() -> dict[str, Any]:
     return {
         "region": os.getenv("AWS_REGION", "us-east-1"),
         "model_id": os.getenv("NOVA_MODEL_ID", "amazon.nova-2-sonic-v1:0"),
-        "voice_id": os.getenv("NOVA_VOICE_ID", "Lupe"),
+        "voice_id": os.getenv("NOVA_VOICE_ID", "carlos"),
+        "prompt_version": PROMPT_VERSION,
         "telegram_configured": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
         "langfuse_configured": bool(os.getenv("LANGFUSE_PUBLIC_KEY")),
     }
