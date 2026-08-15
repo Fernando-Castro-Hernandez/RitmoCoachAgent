@@ -37,3 +37,6 @@ spikes/**/__pycache__/
 # Artefactos locales
 *.log
 /tmp/
+
+# Base temporal para autogenerar migraciones de Alembic
+.tmp-autogen.db

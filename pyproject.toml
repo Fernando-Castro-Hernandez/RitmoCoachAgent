@@ -37,6 +37,7 @@ dev = [
   "ruff>=0.7",
   "poethepoet>=0.30",
   "types-pyyaml>=6.0",
+  "aiosqlite>=0.22.1",
 ]
 
 [tool.uv]
