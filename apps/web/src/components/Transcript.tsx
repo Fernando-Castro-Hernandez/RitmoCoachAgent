@@ -41,7 +41,7 @@ export function Transcript({ turns }: { turns: Turn[] }) {
       ref={caja}
       aria-label={t("coach")}
       aria-live="polite"
-      className="min-h-0 flex-1 overflow-y-auto scroll-smooth"
+      className="min-h-[6.5rem] flex-1 overflow-y-auto scroll-smooth"
     >
       {turns.map((turno, i) => (
         <div

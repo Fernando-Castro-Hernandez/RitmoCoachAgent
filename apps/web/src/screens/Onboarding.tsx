@@ -103,7 +103,7 @@ function Casilla({
       />
       <span className="text-[1.0625rem] font-medium">{children}</span>
       {sub && (
-        <span className={`fig ml-auto text-sm ${selected ? "text-paper/70" : "text-ink-50"}`}>
+        <span className={`fig ml-auto text-sm ${selected ? "text-paper" : "text-ink-70"}`}>
           {sub}
         </span>
       )}
@@ -293,7 +293,7 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
         )}
       </div>
 
-      <footer className="flex items-stretch border-t border-ink">
+      <footer className="flex items-stretch border-t border-ink pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <RegistrationMark className="mx-4 self-center shrink-0" />
         {!ultimo && paso !== "goal" && (
           <button
