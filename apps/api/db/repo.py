@@ -68,13 +68,20 @@ class ProfileRepo:
         if fila is None:
             return None
 
+        # Sin volumen semanal ni días disponibles no hay perfil planificable, y
+        # devolver uno con ceros por defecto sería mentirle al motor. `None`
+        # aquí es la respuesta correcta, y es lo que hace que la clarificación
+        # autónoma tenga algo concreto que detectar.
+        if fila.weekly_volume_km is None or fila.days_per_week is None:
+            return None
+
         # El perfil se llena en dos momentos distintos —carrusel y voz— así que
         # la base puede sostener a la vez «corro 20 km por semana» y «mi tirada
         # más larga son 30». `AthleteProfile` rechaza esa combinación, y con
         # razón. Aquí se recorta al valor coherente en vez de dejar que reviente:
         # el motor tiene que poder trabajar con lo que hay, y la contradicción es
         # justo lo que la conversación va a aclarar.
-        larga = fila.longest_run_km
+        larga = fila.longest_run_km or 0.0
         if fila.weekly_volume_km > 0:
             larga = min(larga, fila.weekly_volume_km)
 
@@ -89,6 +96,28 @@ class ProfileRepo:
             base_cadence_spm=fila.base_cadence_spm,
             injuries=tuple(fila.injuries or ()),
         )
+
+    async def context(self, user_id: str) -> dict[str, Any] | None:
+        """El perfil crudo, para saber **qué se le preguntó** y qué no.
+
+        Distinto de `get()`: aquí los `None` importan y se conservan, porque son
+        justamente la señal que busca la clarificación autónoma.
+        """
+        fila = await self.get_row(user_id)
+        if fila is None:
+            return None
+        return {
+            "weekly_volume_km": fila.weekly_volume_km,
+            "longest_run_km": fila.longest_run_km,
+            "days_per_week": fila.days_per_week,
+            "injuries": fila.injuries,
+            "reference_distance_km": fila.reference_distance_km,
+            "reference_time_sec": fila.reference_time_sec,
+            "goal_distance": fila.goal_distance,
+            "race_date": fila.race_date,
+            "level": fila.level,
+            "base_cadence_spm": fila.base_cadence_spm,
+        }
 
     async def save(self, user_id: str, **campos: Any) -> AthleteProfileRow:
         """Alta o actualización parcial. La usan el carrusel y la voz.

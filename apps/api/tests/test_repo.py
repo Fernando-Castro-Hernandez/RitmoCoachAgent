@@ -104,10 +104,27 @@ async def test_una_contradiccion_en_el_perfil_no_revienta(db: AsyncSession) -> N
     base: se capturan en momentos distintos. El motor no puede reventar por eso;
     la contradicción la aclara la conversación."""
     repo = ProfileRepo(db)
-    await repo.save("u1", weekly_volume_km=20.0, longest_run_km=30.0)
+    await repo.save("u1", weekly_volume_km=20.0, longest_run_km=30.0, days_per_week=3)
     perfil = await repo.get("u1")
     assert perfil is not None
     assert perfil.longest_run_km == 20.0
+
+
+async def test_un_perfil_a_medias_no_es_un_perfil(db: AsyncSession) -> None:
+    """Sin volumen ni días no hay nada que planificar.
+
+    Devolver un perfil con ceros por defecto sería mentirle al motor, y el
+    coach acabaría creyendo que sabe algo que nadie le dijo. `None` aquí es lo
+    que hace que la clarificación autónoma tenga qué detectar.
+    """
+    repo = ProfileRepo(db)
+    await repo.save("u1", age=28, level="intermedio")
+    assert await repo.get("u1") is None
+    # Pero el contexto crudo sí existe, y conserva los huecos.
+    contexto = await repo.context("u1")
+    assert contexto is not None
+    assert contexto["weekly_volume_km"] is None
+    assert contexto["days_per_week"] is None
 
 
 # ── estado de entrenamiento ──────────────────────────────────────────

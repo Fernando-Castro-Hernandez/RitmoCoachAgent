@@ -1,8 +1,8 @@
 """esquema inicial
 
-Revision ID: 020925e83a0f
+Revision ID: 46613e15f0fe
 Revises: 
-Create Date: 2026-08-15 00:25:45.544986
+Create Date: 2026-08-15 00:34:23.752361
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '020925e83a0f'
+revision: str = '46613e15f0fe'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,17 +26,17 @@ def upgrade() -> None:
     sa.Column('level', sa.String(length=16), nullable=False),
     sa.Column('goal_distance', sa.String(length=8), nullable=True),
     sa.Column('race_date', sa.Date(), nullable=True),
-    sa.Column('days_per_week', sa.Integer(), nullable=False),
+    sa.Column('days_per_week', sa.Integer(), nullable=True),
     sa.Column('age', sa.Integer(), nullable=True),
     sa.Column('weight_kg', sa.Float(), nullable=True),
     sa.Column('height_cm', sa.Float(), nullable=True),
     sa.Column('reference_distance_km', sa.Float(), nullable=True),
     sa.Column('reference_time_sec', sa.Integer(), nullable=True),
     sa.Column('timezone', sa.String(length=64), nullable=False),
-    sa.Column('weekly_volume_km', sa.Float(), nullable=False),
-    sa.Column('longest_run_km', sa.Float(), nullable=False),
+    sa.Column('weekly_volume_km', sa.Float(), nullable=True),
+    sa.Column('longest_run_km', sa.Float(), nullable=True),
     sa.Column('base_cadence_spm', sa.Integer(), nullable=True),
-    sa.Column('injuries', sa.JSON(), nullable=False),
+    sa.Column('injuries', sa.JSON(), nullable=True),
     sa.Column('practical_problems', sa.Text(), nullable=True),
     sa.Column('technique_experience', sa.Text(), nullable=True),
     sa.Column('motivation', sa.Text(), nullable=True),

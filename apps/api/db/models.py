@@ -63,7 +63,11 @@ class AthleteProfileRow(Base):
     level: Mapped[str] = mapped_column(String(16), default="principiante")
     goal_distance: Mapped[str | None] = mapped_column(String(8))
     race_date: Mapped[date | None] = mapped_column(Date)
-    days_per_week: Mapped[int] = mapped_column(Integer, default=3)
+    # Anulables a propósito: `None` significa «todavía no se lo hemos
+    # preguntado», y 0 significa «se lo preguntamos y corre cero». La
+    # clarificación autónoma (C3) depende de poder distinguirlos: un valor
+    # por defecto haría que el coach creyera saber algo que nadie le dijo.
+    days_per_week: Mapped[int | None] = mapped_column(Integer)
     age: Mapped[int | None] = mapped_column(Integer)
     weight_kg: Mapped[float | None] = mapped_column(Float)
     height_cm: Mapped[float | None] = mapped_column(Float)
@@ -72,10 +76,10 @@ class AthleteProfileRow(Base):
     timezone: Mapped[str] = mapped_column(String(64), default="America/Mexico_City")
 
     # ── capa blanda · voz ────────────────────────────────────────────
-    weekly_volume_km: Mapped[float] = mapped_column(Float, default=0.0)
-    longest_run_km: Mapped[float] = mapped_column(Float, default=0.0)
+    weekly_volume_km: Mapped[float | None] = mapped_column(Float)
+    longest_run_km: Mapped[float | None] = mapped_column(Float)
     base_cadence_spm: Mapped[int | None] = mapped_column(Integer)
-    injuries: Mapped[list[str]] = mapped_column(JSON, default=list)
+    injuries: Mapped[list[str] | None] = mapped_column(JSON)
     practical_problems: Mapped[str | None] = mapped_column(Text)
     technique_experience: Mapped[str | None] = mapped_column(Text)
     motivation: Mapped[str | None] = mapped_column(Text)
