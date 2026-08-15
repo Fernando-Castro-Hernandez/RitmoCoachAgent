@@ -1411,12 +1411,14 @@ def test_hay_techo_de_preguntas():
     """Tres turnos y se genera algo conservador. Seis preguntas seguidas se
     sienten como un formulario, que es de lo que huimos."""
     from apps.api.prompts import MAX_CLARIFICATION_TURNS
+
     assert MAX_CLARIFICATION_TURNS == 3
 
 
 def test_el_techo_no_aplica_a_seguridad():
     from apps.api.prompts import clarification_budget
-    assert clarification_budget(topic="safety") is None      # sin límite
+
+    assert clarification_budget(topic="safety") is None  # sin límite
     assert clarification_budget(topic="planning") == 3
 ```
 
@@ -1514,7 +1516,7 @@ def test_los_datos_duros_no_se_preguntan_por_voz():
     """Si el carrusel ya los capturó, la voz no los vuelve a pedir."""
     perfil = {c: "algo" for c in HARD_FIELDS}
     q = next_question(perfil)
-    assert q is not None                       # aún faltan los blandos
+    assert q is not None  # aún faltan los blandos
     assert "edad" not in q.lower()
     assert "peso" not in q.lower()
 
@@ -1614,19 +1616,29 @@ from apps.api.vision.workout import reconcile, ImplausibleExtraction
 
 
 def test_el_ritmo_lo_recalcula_el_motor():
-    """El modelo leyó 5:40; 8.42 km en 47:22 son 5:37. Gana el motor."""
-    x = WorkoutExtraction(distance_km=8.42, duration_sec=2842,
-                          avg_pace_sec_per_km=340, avg_hr=152,
-                          confidence="high", unreadable_fields=[])
+    """El modelo leyó 5:40; 8.42 km en 47:18 son 5:37. Gana el motor."""
+    x = WorkoutExtraction(
+        distance_km=8.42,
+        duration_sec=2838,
+        avg_pace_sec_per_km=340,
+        avg_hr=152,
+        confidence="high",
+        unreadable_fields=[],
+    )
     entrada = reconcile(x)
     assert entrada.pace_sec_per_km == 337
     assert entrada.source == "coach_domain.paces.pace_from_run"
 
 
 def test_registra_la_discrepancia_cuando_es_grande():
-    x = WorkoutExtraction(distance_km=8.0, duration_sec=2700,
-                          avg_pace_sec_per_km=200,   # 3:20/km, imposible aquí
-                          avg_hr=150, confidence="high", unreadable_fields=[])
+    x = WorkoutExtraction(
+        distance_km=8.0,
+        duration_sec=2700,
+        avg_pace_sec_per_km=200,  # 3:20/km, imposible aquí
+        avg_hr=150,
+        confidence="high",
+        unreadable_fields=[],
+    )
     entrada = reconcile(x)
     assert entrada.pace_sec_per_km == 337
     assert entrada.discrepancy_flag is True
@@ -1651,6 +1663,7 @@ def test_confianza_baja_no_escribe_en_la_bitacora():
 def test_la_imagen_es_dato_y_no_instruccion(monkeypatch):
     """Una captura con texto inyectado no cambia el comportamiento."""
     from apps.api.vision.workout import EXTRACTION_PROMPT
+
     assert "datos" in EXTRACTION_PROMPT.lower()
     assert "no son instrucciones" in EXTRACTION_PROMPT.lower()
 ```
@@ -1667,17 +1680,26 @@ en lugar de prosa que habría que parsear:
 # apps/api/vision/client.py
 async def extract_structured(image_bytes, media_type, schema, prompt):
     respuesta = await _client.converse(
-        modelId=settings.vision_model_id,       # amazon.nova-2-lite-v1:0
-        messages=[{"role": "user", "content": [
-            {"image": {"format": media_type, "source": {"bytes": image_bytes}}},
-            {"text": prompt},
-        ]}],
+        modelId=settings.vision_model_id,  # amazon.nova-2-lite-v1:0
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"image": {"format": media_type, "source": {"bytes": image_bytes}}},
+                    {"text": prompt},
+                ],
+            }
+        ],
         toolConfig={
-            "tools": [{"toolSpec": {
-                "name": "registrar_extraccion",
-                "description": "Devuelve lo que se lee en la imagen.",
-                "inputSchema": {"json": schema},
-            }}],
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": "registrar_extraccion",
+                        "description": "Devuelve lo que se lee en la imagen.",
+                        "inputSchema": {"json": schema},
+                    }
+                }
+            ],
             # Fuerza la herramienta: no hay salida posible que no sea el esquema.
             "toolChoice": {"tool": {"name": "registrar_extraccion"}},
         },
@@ -1717,7 +1739,7 @@ Reglas:
 ```python
 @app.post("/api/vision/workout")
 async def vision_workout(user_id: str, file: UploadFile) -> dict:
-    if file.size > MAX_IMAGE_BYTES:            # 8 MB
+    if file.size > MAX_IMAGE_BYTES:  # 8 MB
         raise HTTPException(413, "imagen demasiado grande")
     if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(415, "formato no soportado")
@@ -1810,6 +1832,7 @@ async def test_todo_hallazgo_es_dictable_en_voz(fake_vision_client):
 @pytest.mark.asyncio
 async def test_conecta_con_la_biblioteca_de_tecnica(fake_vision_client):
     from coach_domain.technique import load_cues
+
     ids = {c.id for c in load_cues()}
     for h in await analyze_gait(_diez_cuadros()):
         if h.suggested_cue_id:
@@ -1903,7 +1926,7 @@ def test_las_columnas_son_las_declaradas(plan_de_ejemplo):
 
 def test_el_ritmo_sale_formateado_y_no_en_segundos(plan_de_ejemplo):
     fila = next(csv.DictReader(io.StringIO(plan_to_csv(plan_de_ejemplo))))
-    assert ":" in fila["ritmo_objetivo"]          # "5:37", no "337"
+    assert ":" in fila["ritmo_objetivo"]  # "5:37", no "337"
 
 
 def test_abre_bien_en_excel_en_espanol(plan_de_ejemplo):
@@ -1922,8 +1945,18 @@ def test_no_filtra_datos_personales(plan_de_ejemplo):
 - [ ] **Paso 3: Implementar**
 
 ```python
-CSV_COLUMNS = ["semana", "fase", "fecha", "dia", "tipo", "distancia_km",
-               "ritmo_objetivo", "zona", "notas", "señal_de_tecnica"]
+CSV_COLUMNS = [
+    "semana",
+    "fase",
+    "fecha",
+    "dia",
+    "tipo",
+    "distancia_km",
+    "ritmo_objetivo",
+    "zona",
+    "notas",
+    "señal_de_tecnica",
+]
 ```
 
 Un CSV con `;` frente a `,` es la clásica pelea con Excel en español. Se usa `,`
@@ -2261,7 +2294,7 @@ campos en inputs editables, con la confianza visible:
 
 ```
   Distancia   [ 8.42 ] km        ✓ leído con claridad
-  Tiempo      [ 47:22 ]          ✓
+  Tiempo      [ 47:18 ]          ✓
   Ritmo         5:37 /km           calculado por Ritmo, no leído
   Pulso       [ 152  ] ppm       ⚠ dudoso, revísalo
 

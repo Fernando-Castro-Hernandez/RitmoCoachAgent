@@ -69,7 +69,7 @@ respaldo. Ambos verificados disponibles en `us-east-1` en la cuenta `60244090486
 
 | Criterio | Por qué manda aquí |
 |---|---|
-| Es extracción, no razonamiento | Leer «8.42 km · 5:37 /km · 42:12» de una captura es OCR con estructura. Un modelo frontera es desperdicio. |
+| Es extracción, no razonamiento | Leer «8.42 km · 5:37 /km · 47:18» de una captura es OCR con estructura. Un modelo frontera es desperdicio. |
 | Latencia | El usuario espera mirando una barra de progreso. Segundos, no decenas de segundos. |
 | Costo por imagen | Es la operación que más se repite (una por entrenamiento). Va al tier más barato que resuelva. |
 | Salida estructurada | `Converse` con `toolConfig` obliga al modelo a devolver el JSON del esquema, en vez de prosa que hay que parsear. |
@@ -90,7 +90,7 @@ El modelo de visión **no calcula nada.** Devuelve lo que ve, y punto:
 ```json
 {
   "distance_km": 8.42,
-  "duration_sec": 2842,
+  "duration_sec": 2838,
   "avg_pace_sec_per_km": 337,
   "avg_hr": 152,
   "confidence": "high",
