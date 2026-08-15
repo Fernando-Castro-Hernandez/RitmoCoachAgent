@@ -276,7 +276,7 @@ export function Upload({ userId, onClose, onSave }: Props) {
       </div>
 
       {(fase === "revisar" || fase === "manual") && (
-        <footer className="border-t border-ink">
+        <footer className="border-t border-ink pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={!guardable}

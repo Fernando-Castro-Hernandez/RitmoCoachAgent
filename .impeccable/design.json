@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-15T00:00:00Z",
+  "title": "Design System: Ritmo — Hoja de Valoración",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Cold Paper",
+        "canonical": "#F2F3F1",
+        "note": "Page ground everywhere; also the text colour on any blue or ink field, and the browser theme-color.",
+        "tonalRamp": ["#26282A", "#3D4042", "#565A5B", "#717574", "#8D918F", "#AAADAA", "#C8CAC6", "#F2F3F1"]
+      },
+      "paper-edge": {
+        "role": "neutral",
+        "displayName": "Paper Edge",
+        "canonical": "#E7E9E5",
+        "note": "Declared but not load-bearing in any shipped screen.",
+        "tonalRamp": ["#24261F", "#3A3D35", "#52564C", "#6C7065", "#888C80", "#A6A99D", "#C5C8BE", "#E7E9E5"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Document Ink",
+        "canonical": "#14161A",
+        "note": "Body text, structural seams, and the fill of ghost buttons on hover.",
+        "tonalRamp": ["#14161A", "#4D5057", "#7C7F85", "#A9ACB1", "#CBCDD0", "#DFE0E1", "#E9EAEB", "#F2F3F1"]
+      },
+      "ink-70": {
+        "role": "neutral",
+        "displayName": "Ink 70% Coverage",
+        "canonical": "#4D5057",
+        "note": "7.25:1 on paper. The lightest tint permitted to carry text.",
+        "tonalRamp": ["#14161A", "#2C2F35", "#4D5057", "#6A6D74", "#8B8E94", "#ACAFB4", "#CDCFD2", "#EEEFF0"]
+      },
+      "ink-50": {
+        "role": "neutral",
+        "displayName": "Ink 50% Coverage",
+        "canonical": "#7C7F85",
+        "note": "3.61:1. Rules, borders and non-reading marks only. Never text.",
+        "tonalRamp": ["#16181C", "#2E3136", "#4A4D53", "#65686E", "#7C7F85", "#9C9FA4", "#BEC0C4", "#E0E1E3"]
+      },
+      "ink-30": {
+        "role": "neutral",
+        "displayName": "Ink 30% Coverage",
+        "canonical": "#A9ACB1",
+        "note": "2.05:1. Registration mark, unfilled tick box outline, em-dash placeholders. Never text.",
+        "tonalRamp": ["#191B1F", "#333639", "#4E5155", "#6A6D71", "#87898E", "#A9ACB1", "#C7C9CC", "#E5E6E8"]
+      },
+      "ink-15": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#CBCDD0",
+        "note": "The universal rule. Every ordinary division in the system.",
+        "tonalRamp": ["#1B1D20", "#35373B", "#4F5155", "#6B6D71", "#888A8E", "#A6A8AC", "#CBCDD0", "#EAEBEC"]
+      },
+      "ink-08": {
+        "role": "neutral",
+        "displayName": "Ink 8% Coverage",
+        "canonical": "#DFE0E1",
+        "note": "The offset grain dot, progress trough, computed-field wash, disabled primary fill.",
+        "tonalRamp": ["#1C1D1F", "#36383A", "#515355", "#6C6E70", "#898B8D", "#A8AAAB", "#C6C7C9", "#DFE0E1"]
+      },
+      "proof": {
+        "role": "primary",
+        "displayName": "Process Blue",
+        "canonical": "#1B4FD8",
+        "note": "Control and liveness ink. Fills whole regions; draws every focus ring, caret and selection.",
+        "tonalRamp": ["#0A1C4E", "#0F2A73", "#143899", "#1846BE", "#1B4FD8", "#4A75E4", "#7C9BEE", "#B6C8F7"]
+      },
+      "proof-deep": {
+        "role": "primary",
+        "displayName": "Deep Process Blue",
+        "canonical": "#1439A3",
+        "note": "Hover/press on blue-filled controls; the orb's ink for internal-work states.",
+        "tonalRamp": ["#081231", "#0B1D50", "#0F296F", "#12318C", "#1439A3", "#3A5EBE", "#6E8AD6", "#A9BCEC"]
+      },
+      "clear": {
+        "role": "tertiary",
+        "displayName": "Clear Green",
+        "canonical": "#1F7A4D",
+        "note": "Signal ink. Safety key square at clear. Appears nowhere else in the build.",
+        "tonalRamp": ["#071F13", "#0C3322", "#124A31", "#186241", "#1F7A4D", "#3E9C6B", "#71BE94", "#AEDCC4"]
+      },
+      "caution": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#B26B00",
+        "note": "Signal ink. Safety key at caution, plus 'needs attention now' bands: 2px left rule over an 8% wash.",
+        "tonalRamp": ["#2B1A00", "#472A00", "#653C00", "#8A5300", "#B26B00", "#D68B1E", "#E8B160", "#F5D9A9"]
+      },
+      "flag": {
+        "role": "secondary",
+        "displayName": "Flag Red",
+        "canonical": "#C8102E",
+        "note": "Signal ink, reserved entirely for the safety gate: the void stamp, the referral card, inline errors.",
+        "tonalRamp": ["#33040C", "#530715", "#750A1E", "#9C0D26", "#C8102E", "#E03D56", "#EE7C8D", "#F8BAC4"]
+      }
+    },
+    "typographyMeta": {
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Today's distance, and only that. The single display-size number in the product; tabular mono inside an <output>."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "The onboarding question. One per screen, text-balanced."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The RITMO wordmark. Letterspacing does the branding; there is no logo asset."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The pace line under the distance, and the value inside an input."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Transcript turns, field values, explanatory prose."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "The why-footnote, secondary hints, warning band text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Every field name, state caption and small control. Mono small caps at 0.14em. Never an eyebrow or kicker."
+      }
+    },
+    "shadows": [],
+    "elevation": {
+      "strategy": "none",
+      "note": "Zero box-shadow and zero drop-shadow exist in the build. Depth is rule weight (1px hairline vs full ink vs 2px stamped edge), solid ink fields, and 6-60% tint washes."
+    },
+    "motion": [
+      {
+        "name": "stamp",
+        "value": "@keyframes stamp { from { opacity: 0; transform: rotate(-9deg) scale(1.9) } 60% { opacity: 1 } to { opacity: 1; transform: rotate(-9deg) scale(1) } }",
+        "purpose": "The void stamp landing. The only choreographed moment in the product."
+      },
+      {
+        "name": "stamp-ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1) 260ms",
+        "purpose": "Exponential decelerate, no bounce. A rubber stamp is not foam."
+      },
+      {
+        "name": "state-transition",
+        "value": "transition-colors, 150ms default",
+        "purpose": "The only transition ordinary controls get. Colour changes, never transforms."
+      },
+      {
+        "name": "hold-to-acknowledge",
+        "value": "1200ms rAF-driven fill of bg-flag/15",
+        "purpose": "Leaving a medical stop must not be the gesture that reached it."
+      },
+      {
+        "name": "orb-loop",
+        "value": "30fps rAF, dpr capped at 2, level smoothed at 0.18/frame",
+        "purpose": "Canvas wet ink. Sleeps at rest; must be woken on resize, visibilitychange and a 250ms state poll."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce) { animation-duration: 0.01ms; transition-duration: 0.01ms }",
+        "purpose": "Global. The orb additionally draws one static frame with advance fronts spaced evenly, so no state information is lost."
+      }
+    ],
+    "breakpoints": [
+      { "name": "lg", "value": "1024px", "note": "Main screen opens to a 26rem structure column plus a fluid conversation column. Documented from source; not re-verified in the finish review." }
+    ],
+    "texture": [
+      {
+        "name": "offset-grain",
+        "value": "background-image: radial-gradient(#DFE0E1 0.5px, transparent 0.5px); background-size: 3px 3px",
+        "purpose": "A fine offset screen across the body. Not a stock paper texture."
+      }
+    ],
+    "coverage": {
+      "disposition": "ship",
+      "scope": "mobile surface only",
+      "passes": "four verdict passes; eight material fixes and four regressions",
+      "caveats": [
+        "Explicitly NOT a desktop clearance — desktop.png was not re-inspected after the first round.",
+        "All mobile evidence is Chromium device emulation at 390x844, not a physical handset.",
+        "The ink-70 text floor is enforced by human review; the automated design detector passed all five contrast defects that review caught.",
+        "paper-edge is defined but not load-bearing in any shipped screen.",
+        "The safe-area footer floor is applied in the main and onboarding footers; the Upload save footer does not yet carry it.",
+        "RENEWING is a context flag with no visual treatment, so it has no captured evidence."
+      ],
+      "captures": ".impeccable/review/*.png — nine images, eight mobile plus one desktop"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid process blue, square, full-width at the bottom of a screen. Never rendered when its precondition is unmet.",
+      "html": "<button class=\"ds-btn-primary\">Siguiente</button>",
+      "css": ".ds-btn-primary { display: block; width: 100%; min-height: 3.5rem; padding: 0 1.25rem; background: var(--color-proof, #1B4FD8); color: var(--color-paper, #F2F3F1); font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 1.0625rem; font-weight: 500; border: none; border-radius: 0; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: var(--color-proof-deep, #1439A3); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-proof, #1B4FD8); outline-offset: 2px; } .ds-btn-primary:disabled { background: var(--color-ink-08, #DFE0E1); color: var(--color-ink-70, #4D5057); cursor: not-allowed; }"
+    },
+    {
+      "name": "Unmet Condition Field",
+      "kind": "custom",
+      "refersTo": "button-rule",
+      "description": "What replaces a primary button when its precondition is unmet: an unfilled ruled field naming the condition, not a dark button that does nothing.",
+      "html": "<p class=\"ds-field-unmet\">Elige una</p>",
+      "css": ".ds-field-unmet { display: flex; align-items: center; justify-content: center; min-height: 3.5rem; margin: 0; padding: 0 1.25rem; border-left: 1px solid var(--color-ink-15, #CBCDD0); font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; text-align: center; color: var(--color-ink-70, #4D5057); }"
+    },
+    {
+      "name": "Rule Button",
+      "kind": "button",
+      "refersTo": "button-rule",
+      "description": "The ghost variant: label type bounded by a hairline. Hover inks it in solid.",
+      "html": "<button class=\"ds-btn-rule\">Subir captura</button>",
+      "css": ".ds-btn-rule { padding: 0.75rem 1rem; background: transparent; color: var(--color-ink-70, #4D5057); border: 1px solid var(--color-ink-15, #CBCDD0); border-radius: 0; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; transition: background-color 150ms, color 150ms, border-color 150ms; } .ds-btn-rule:hover { background: var(--color-ink, #14161A); color: var(--color-paper, #F2F3F1); border-color: var(--color-ink, #14161A); } .ds-btn-rule:focus-visible { outline: 2px solid var(--color-proof, #1B4FD8); outline-offset: 2px; }"
+    },
+    {
+      "name": "Option Box",
+      "kind": "chip",
+      "refersTo": "option-box",
+      "description": "A form tick-box row. Selected fills solid process blue and the box fills paper — the answer is inked in, not highlighted.",
+      "html": "<div class=\"ds-options\"><button class=\"ds-option\" aria-pressed=\"false\"><span class=\"ds-option-tick\"></span><span class=\"ds-option-label\">10K</span><span class=\"ds-option-sub\">10 km</span></button><button class=\"ds-option ds-option--on\" aria-pressed=\"true\"><span class=\"ds-option-tick\"></span><span class=\"ds-option-label\">21K</span><span class=\"ds-option-sub\">21.1 km</span></button></div>",
+      "css": ".ds-options { display: flex; flex-direction: column; gap: 0.75rem; } .ds-option { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.5rem; padding: 0.75rem 1rem; text-align: left; background: transparent; color: var(--color-ink, #14161A); border: 1px solid var(--color-ink-15, #CBCDD0); border-radius: 0; cursor: pointer; transition: border-color 150ms, background-color 150ms; } .ds-option:hover { border-color: var(--color-ink, #14161A); } .ds-option:focus-visible { outline: 2px solid var(--color-proof, #1B4FD8); outline-offset: 2px; } .ds-option-tick { flex: 0 0 auto; width: 0.875rem; height: 0.875rem; border: 1px solid var(--color-ink-30, #A9ACB1); } .ds-option-label { font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 1.0625rem; font-weight: 500; } .ds-option-sub { margin-left: auto; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--color-ink-70, #4D5057); } .ds-option--on { background: var(--color-proof, #1B4FD8); border-color: var(--color-proof, #1B4FD8); color: var(--color-paper, #F2F3F1); } .ds-option--on .ds-option-tick { background: var(--color-paper, #F2F3F1); border-color: var(--color-paper, #F2F3F1); } .ds-option--on .ds-option-sub { color: var(--color-paper, #F2F3F1); }"
+    },
+    {
+      "name": "Answer-Rule Input",
+      "kind": "input",
+      "refersTo": "field-input",
+      "description": "No box: a mono label above a transparent input sitting on an ink answer rule, with an optional unit suffix on the baseline.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Peso</span><span class=\"ds-field-rule\"><input class=\"ds-field-input\" value=\"72\" inputmode=\"decimal\" /><span class=\"ds-field-suffix\">kg</span></span></label>",
+      "css": ".ds-field { display: block; } .ds-field-label { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-70, #4D5057); } .ds-field-rule { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.25rem; border-bottom: 1px solid var(--color-ink, #14161A); } .ds-field-input { flex: 1 1 auto; min-width: 0; padding: 0.5rem 0; background: transparent; border: none; border-radius: 0; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 1.5rem; color: var(--color-ink, #14161A); } .ds-field-input:focus { outline: none; } .ds-field-rule:focus-within { border-bottom-color: var(--color-proof, #1B4FD8); } .ds-field-suffix { flex: 0 0 auto; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-70, #4D5057); } .ds-field--warn .ds-field-rule { border-bottom-color: var(--color-caution, #B26B00); }"
+    },
+    {
+      "name": "Computed Field",
+      "kind": "input",
+      "refersTo": "field-computed",
+      "description": "A value the engine calculated: washed ground, an <output>, and a process-blue CALCULADO label. Visibly a result, not an unfilled blank.",
+      "html": "<div class=\"ds-computed\"><span class=\"ds-computed-label\">Ritmo</span><p class=\"ds-computed-row\"><output class=\"ds-computed-value\">5:42</output><span class=\"ds-computed-unit\">/km</span><span class=\"ds-computed-tag\">Calculado</span></p><p class=\"ds-computed-why\">Sale de la distancia y el tiempo. No se edita.</p></div>",
+      "css": ".ds-computed { padding: 0.75rem 1rem; background: color-mix(in oklab, var(--color-ink-08, #DFE0E1) 60%, transparent); } .ds-computed-label, .ds-computed-unit, .ds-computed-tag { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-70, #4D5057); } .ds-computed-row { display: flex; align-items: baseline; gap: 0.5rem; margin: 0.25rem 0 0; } .ds-computed-value { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 1.5rem; color: var(--color-ink, #14161A); } .ds-computed-tag { margin-left: auto; color: var(--color-proof, #1B4FD8); } .ds-computed-why { margin: 0.25rem 0 0; font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.8125rem; color: var(--color-ink-70, #4D5057); }"
+    },
+    {
+      "name": "Session Field",
+      "kind": "card",
+      "refersTo": "session-field",
+      "description": "The signature region: the one place process blue owns a whole area, carrying today's distance as the product's only display-size figure.",
+      "html": "<section class=\"ds-session\"><h2 class=\"ds-session-kind\">Hoy · Tirada larga</h2><p class=\"ds-session-figure\"><output class=\"ds-session-km\">18</output><span class=\"ds-session-unit\">km</span></p><p class=\"ds-session-pace\"><span class=\"ds-session-mono\">6:15–6:40</span> <span class=\"ds-session-per\">/km</span></p><p class=\"ds-session-kind\">Zona 2 · <span class=\"ds-session-mono\">~1 h 55 min</span></p><hr class=\"ds-session-rule\" /></section>",
+      "css": ".ds-session { padding: 1.25rem 1rem 1.5rem; background: var(--color-proof, #1B4FD8); color: var(--color-paper, #F2F3F1); } .ds-session-kind { margin: 0; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: color-mix(in oklab, var(--color-paper, #F2F3F1) 78%, var(--color-proof, #1B4FD8)); } .ds-session-figure { display: flex; align-items: baseline; gap: 0.5rem; margin: 0.5rem 0 0; line-height: 1; } .ds-session-km { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: clamp(5.5rem, 26vw, 9rem); line-height: 0.82; font-weight: 600; letter-spacing: -0.04em; } .ds-session-unit { font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 1.5rem; font-weight: 500; } .ds-session-pace { margin: 1rem 0 0; font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 1.375rem; font-weight: 500; line-height: 1.25; } .ds-session-mono { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-variant-numeric: tabular-nums; } .ds-session-per { font-size: 1rem; } .ds-session-rule { margin: 1.25rem 0 0; border: 0; border-top: 1px solid color-mix(in oklab, var(--color-paper, #F2F3F1) 45%, transparent); }"
+    },
+    {
+      "name": "Safety Key",
+      "kind": "custom",
+      "refersTo": "referral-card",
+      "description": "The colour code always ships its key: a label, the signal square, and the level spelled out. Without it the signal inks would be decoration.",
+      "html": "<div class=\"ds-key\"><span class=\"ds-key-title\">Clave</span><span class=\"ds-key-dot\" aria-hidden=\"true\"></span><span class=\"ds-key-level\">Puedes entrenar</span></div>",
+      "css": ".ds-key { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; white-space: nowrap; } .ds-key-title, .ds-key-level { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; } .ds-key-title { color: var(--color-ink-70, #4D5057); } .ds-key-level { color: var(--color-ink, #14161A); } .ds-key-dot { width: 0.625rem; height: 0.625rem; background: var(--color-clear, #1F7A4D); }"
+    },
+    {
+      "name": "Void Stamp",
+      "kind": "custom",
+      "refersTo": "void-stamp",
+      "description": "The safety gate's gesture. The unfilled form beneath, a distressed red stamp landing rotated -9 degrees with no bounce. The figures are not struck through — they are not rendered.",
+      "html": "<div class=\"ds-void\"><div class=\"ds-void-blank\" aria-hidden=\"true\"><hr /><hr /><hr /></div><svg class=\"ds-void-filters\" aria-hidden=\"true\"><filter id=\"ds-hule\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.9\" numOctaves=\"3\" seed=\"7\" /><feDisplacementMap in=\"SourceGraphic\" scale=\"2.4\" xChannelSelector=\"R\" yChannelSelector=\"G\" /></filter><filter id=\"ds-hule-gastado\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.05 0.34\" numOctaves=\"4\" seed=\"3\" /><feColorMatrix type=\"matrix\" values=\"0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.7 1.05\" /><feComposite in=\"SourceGraphic\" operator=\"in\" /></filter></svg><div class=\"ds-void-layer\"><p class=\"ds-void-stamp\">Anulado</p></div></div>",
+      "css": "@keyframes ds-stamp { from { opacity: 0; transform: rotate(-9deg) scale(1.9) } 60% { opacity: 1 } to { opacity: 1; transform: rotate(-9deg) scale(1) } } .ds-void { position: relative; overflow: hidden; padding: 3.5rem 1rem; border-bottom: 1px solid var(--color-ink-15, #CBCDD0); } .ds-void-blank hr { margin: 0 0 1.75rem; border: 0; border-top: 1px solid var(--color-ink-15, #CBCDD0); } .ds-void-blank hr:last-child { margin-bottom: 0; } .ds-void-filters { position: absolute; width: 0; height: 0; } .ds-void-layer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; } .ds-void-stamp { margin: 0; padding: 0.5rem 1.5rem; border: 3px solid var(--color-flag, #C8102E); color: var(--color-flag, #C8102E); font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 1.875rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; filter: url(#ds-hule) url(#ds-hule-gastado); transform: rotate(-9deg); animation: ds-stamp 260ms cubic-bezier(0.16, 1, 0.3, 1) both; } @media (prefers-reduced-motion: reduce) { .ds-void-stamp { animation-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Transcript Row",
+      "kind": "custom",
+      "refersTo": "field-input",
+      "description": "A conversation turn as a ruled form entry: speaker in the left margin, text right, dashed hairline between. One empty row prints before any conversation exists.",
+      "html": "<div class=\"ds-turn\"><div class=\"ds-turn-who\">Tú</div><p class=\"ds-turn-text\">Me molestó algo la rodilla</p></div><div class=\"ds-turn\"><div class=\"ds-turn-who\">Coach</div><p class=\"ds-turn-text ds-turn-text--partial\">¿En qué parte exactamente?</p></div>",
+      "css": ".ds-turn { display: grid; grid-template-columns: 4.5rem 1fr; border-bottom: 1px dashed var(--color-ink-15, #CBCDD0); } .ds-turn-who { padding: 0.75rem 1rem; border-right: 1px solid var(--color-ink-15, #CBCDD0); font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-70, #4D5057); } .ds-turn-text { margin: 0; padding: 0.75rem 1rem; font-family: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.9375rem; line-height: 1.625; color: var(--color-ink, #14161A); } .ds-turn-text--partial { font-style: italic; color: var(--color-ink-70, #4D5057); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Assessment Sheet",
+    "overview": "Training is a clinical document: a professional fills it in, stamps it, and can void it. Every surface in this product is one sheet of cold paper printed in two or three inks — hairline rules instead of cards, tick boxes instead of pills, a registration cross in the margin, a fine offset grain across the whole body. Nothing floats. Nothing is elevated. A component that needs a container gets a rule, not a box with a shadow.\n\nThe system refuses the category's metrics dashboard on purpose. There are no progress rings, no hero-metric-with-supporting-stats, no orange, no gamification furniture. Process blue is not sprinkled as an accent; it is laid down as a solid field over the one region that carries today's decision, the way flat spot colour prints on a real form. That single inversion does the work a dozen cards would otherwise do.\n\nExactly one thing on the sheet is not printed: the voice orb, drawn on canvas as wet ink — radial density falling into the paper, filled advance fronts, an off-centre core, a bitten edge, three blotches where the fibre drank more. The contrast between everything printed (fixed, authoritative) and the one thing still wet (live, listening) is the whole idea, and it is the only gradient and the only choreographed motion the world permits.",
+    "keyCharacteristics": [
+      "Cold paper ground with a 3px radial offset grain, never flat white",
+      "Zero corner radius, zero shadows, zero gradients outside the orb and the safety stamp",
+      "Hairline rules (1px, ink-15) as the universal container",
+      "Process blue as a field owning whole regions, not as a tint on small elements",
+      "Every figure set in tabular mono; every label in letterspaced mono small caps",
+      "Signal inks (green / amber / red) exist only inside the safety code, with a visible key",
+      "One choreographed moment in the entire product: the void stamp landing"
+    ],
+    "rules": [
+      {
+        "name": "The Two Groups Rule",
+        "body": "There are document inks and there are signal inks, and the boundary is absolute. No signal ink appears outside the safety code. In particular the orb never turns green or amber: the orb is a control, controls are process blue, and its states differ by how far and how fast the ink bleeds — never by hue.",
+        "section": "colors"
+      },
+      {
+        "name": "The ink-70 Floor",
+        "body": "ink-70 (7.25:1) is the lightest tint permitted to carry text. ink-50 (3.61:1) and ink-30 (2.05:1) are for rules, borders and non-reading placeholders only. This is enforced by review, not by tooling — five contrast defects were fixed against this rule during the finish review and the automated design detector reported all five as clean beforehand.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber-Means-Now Rule",
+        "body": "Amber is for a condition that needs attention now. A standing condition is printed furniture, not an alert: the MUESTRA specimen notice is a dashed rule-box in ink, not an amber band, because it is always true and an always-on warning teaches people to stop reading warnings.",
+        "section": "colors"
+      },
+      {
+        "name": "The Field, Not the Accent Rule",
+        "body": "When blue appears at size it owns the whole region — background, label, figures, the answer rule beneath — rather than tinting a border or a heading inside an otherwise white card.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figure Rule",
+        "body": "Every figure is mono and tabular. output, data, time and .fig all inherit tabular-nums and \"tnum\" globally, so a changing number never shifts the layout under a thumb. Native date and time inputs are pulled into the same face so the system's own widgets do not break the sheet.",
+        "section": "typography"
+      },
+      {
+        "name": "The Label-Over-Value Rule",
+        "body": "A field is a letterspaced mono label with its value directly beneath, not a label-colon-value inline pair. This is what makes an unfilled region read as a form waiting to be filled rather than as an empty state.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Kicker Rule",
+        "body": "Small caps type is a field name. It never appears above a heading as an eyebrow or a category tag.",
+        "section": "typography"
+      },
+      {
+        "name": "The Safe-Area Floor Rule",
+        "body": "Every bottom-anchored footer pads with max(0.75rem, env(safe-area-inset-bottom)). env() alone resolves to 0 in a notchless viewport, which hides the bug in exactly the environment used to test it — so the floor is not optional. Applied in the main footer and the onboarding footer; the Upload save footer does not yet carry it and is a known gap.",
+        "section": "layout"
+      },
+      {
+        "name": "The Orb-Centred Footer Rule",
+        "body": "The footer is a 5rem | 1fr | 5rem grid so the orb is centred against the viewport rather than against whatever text happens to flank it, and side controls can never land on the orb's state caption.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-Sheet Rule",
+        "body": "Nothing overlaps except the void stamp, and the stamp overlaps because a stamp physically does. If a design needs a modal, a card or a floating panel, it is being asked the wrong question — put it in the sheet's flow behind a rule.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Border-Disambiguation Rule",
+        "body": "A rule-box's border tells you whether you can touch it. Solid hairline = tappable control. Dashed 2px = printed stamp (the MUESTRA specimen mark). They are never mixed, because a rectangle of type is otherwise ambiguous between \"button\" and \"printed on the form\".",
+        "section": "shapes"
+      },
+      {
+        "name": "The Drawn-Icon Rule",
+        "body": "Icons are inline SVG paths at 1-1.25px stroke weight, never a Unicode glyph and never an icon font — a typographic character inherits the text font's metrics rather than the icon system's, and drifts off the rule it sits on.",
+        "section": "shapes"
+      },
+      {
+        "name": "The No-Dead-Primary Rule",
+        "body": "When a primary's precondition is unmet, it is not rendered as a button at all. The onboarding footer with no race chosen shows an unfilled ruled field naming the condition (\"pick one\") rather than a dark, legible button that does nothing. A disabled-looking button teaches a cold visitor that the app is broken; a blank field teaches them what to fill in.",
+        "section": "components"
+      },
+      {
+        "name": "The Sleeping Orb Rule",
+        "body": "At rest with no signal the loop draws one frame and stops. It must therefore be woken by anything that clears the canvas: a resize clears the bitmap and a sleeping loop will never repaint it, so the orb re-measures and restarts on resize, on visibilitychange, and on a 250ms state poll. Reduced-motion draws a single static frame with the fronts spaced evenly, so no state information is lost.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do contain things with a rule (ink-15 hairline), and reserve full-strength ink borders for the two structural seams of a screen.",
+      "Do set every number in JetBrains Mono with tabular figures, including inside inputs and native date/time widgets.",
+      "Do put a mono letterspaced label above its value, so unfilled regions read as a form rather than as an empty state.",
+      "Do let process blue own a whole region when it appears at size.",
+      "Do ship the key whenever a signal ink appears — colour must always be paired with words.",
+      "Do keep text at ink-70 or darker; ink-50 and ink-30 are for rules and non-reading marks.",
+      "Do pad bottom-anchored footers with max(0.75rem, env(safe-area-inset-bottom)).",
+      "Do distinguish rule-boxes by border: solid hairline for controls, dashed 2px for printed marks.",
+      "Do draw icons as inline SVG paths at 1-1.25px stroke."
+    ],
+    "donts": [
+      "Don't introduce a corner radius, a shadow, or a gradient. The only gradients in the system are inside the orb's canvas.",
+      "Don't use green, amber or red outside the safety code — and never inside the orb's operable states.",
+      "Don't render a disabled primary button. Render the unmet condition as a ruled field instead.",
+      "Don't use amber for a standing condition; standing conditions are printed furniture in ink.",
+      "Don't signal any state with colour alone — every state carries a text caption too.",
+      "Don't add a card, modal or floating panel. Put the content in the sheet's flow behind a rule.",
+      "Don't use a Unicode glyph or icon font as an icon.",
+      "Don't set small caps type as an eyebrow or kicker above a heading; small caps means field name.",
+      "Don't read CSS custom properties inside an animation frame.",
+      "Don't hide un-prescribable content with CSS. If the safety gate is red, the figures must not reach the DOM."
+    ]
+  }
+}
