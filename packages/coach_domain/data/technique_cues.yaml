@@ -1,0 +1,129 @@
+# Biblioteca de señales de técnica de carrera.
+#
+# Curada a mano y versionada en el repositorio. Se revisa como código, no como
+# contenido (ADR 0011). El LLM NUNCA inventa una señal de técnica: un consejo
+# de técnica improvisado puede lesionar a alguien, igual que un número inventado.
+#
+# Reglas de redacción de `texto_voz`:
+#   · Máximo ~220 caracteres. Es lo que cabe en dos frases habladas.
+#   · Una sola instrucción. Nadie corrige tres cosas a la vez corriendo.
+#   · Sin jerga. «Aterriza bajo tu cadera», no «reduce el over-striding».
+#   · En segunda persona y en presente. Se va a escuchar a mitad de una carrera.
+#
+# El orden de la lista es el orden de enseñanza: va de lo más fundamental y con
+# más respaldo a lo más accesorio.
+
+- id: cadencia-incremento
+  categoria: cadencia
+  nivel: [principiante, intermedio, avanzado]
+  momento: pre-sesion
+  texto_voz: >
+    Hoy fíjate sólo en una cosa: da pasos un poquito más cortos y más
+    frecuentes de lo que te sale natural. Nada más eso.
+  explicacion_larga: >
+    Acortar el paso hace que aterrices más cerca de tu centro de masa, y eso
+    reduce la fuerza de frenado en cada zancada. Ojo: el famoso objetivo de 180
+    pasos por minuto para todo el mundo es un mito — sale de una observación
+    sobre corredores de élite en 1984. Lo que sí tiene respaldo es subir entre
+    un cinco y un diez por ciento sobre TU cadencia, no llegar a un número
+    universal.
+  contraindicaciones: [dolor_agudo_activo]
+
+- id: sobrezancada-aterrizaje
+  categoria: sobrezancada
+  nivel: [principiante, intermedio, avanzado]
+  momento: durante-sesion
+  texto_voz: >
+    Piensa que el pie aterriza debajo de ti, no delante de ti. Si oyes que
+    pisas fuerte, probablemente estás alcanzando con la pierna.
+  explicacion_larga: >
+    La sobrezancada es aterrizar con el pie bastante por delante del cuerpo,
+    con la pierna estirada. Cada paso así funciona como un freno y manda la
+    carga a la rodilla. Es el error con más respaldo en la literatura y el que
+    más vale la pena corregir. No se arregla cambiando por dónde pisas, sino
+    acercando el punto de contacto a tu cuerpo.
+  contraindicaciones: [dolor_agudo_activo, molestia_rodilla]
+
+- id: postura-tronco
+  categoria: postura
+  nivel: [principiante, intermedio, avanzado]
+  momento: pre-sesion
+  texto_voz: >
+    Corre alto. Imagina un hilo que te jala desde la coronilla y que te
+    inclinas apenas hacia adelante, desde los tobillos y no desde la cintura.
+  explicacion_larga: >
+    Doblarse por la cintura cierra el pecho, limita la respiración y adelanta
+    el aterrizaje del pie. La inclinación útil es muy leve y sale de los
+    tobillos, con el cuerpo en línea. Si te cansas y te vas encorvando, es
+    señal de fatiga: afloja el ritmo en vez de forzar la postura.
+  contraindicaciones: [dolor_agudo_activo, molestia_lumbar]
+
+- id: brazos-noventa
+  categoria: brazos
+  nivel: [principiante, intermedio]
+  momento: durante-sesion
+  texto_voz: >
+    Los brazos van más o menos a noventa grados y se mueven hacia adelante y
+    atrás, no cruzando el pecho. El movimiento sale del hombro.
+  explicacion_larga: >
+    Cruzar los brazos por delante del torso obliga al tronco a rotar, y esa
+    rotación se paga con energía y con carga en la cadera. Mantenerlos en un
+    plano adelante-atrás mantiene el torso estable. No es cuestión de fuerza:
+    es cuestión de dirección.
+  contraindicaciones: [dolor_agudo_activo, molestia_hombro]
+
+- id: manos-relajadas
+  categoria: manos
+  nivel: [principiante, intermedio, avanzado]
+  momento: durante-sesion
+  texto_voz: >
+    Abre un poco las manos. Imagina que llevas una papita frita entre los
+    dedos y no la quieres romper.
+  explicacion_larga: >
+    Apretar los puños tensa el antebrazo, y esa tensión sube al hombro y al
+    cuello. No te hace más lento de forma medible, pero sí te cansa antes y
+    se nota mucho en carreras largas. Es la corrección más fácil de todas y
+    la que da resultado inmediato.
+  contraindicaciones: [dolor_agudo_activo]
+
+- id: mirada-al-frente
+  categoria: mirada
+  nivel: [principiante, intermedio]
+  momento: pre-sesion
+  texto_voz: >
+    Mira unos veinte o treinta metros adelante, no tus pies. La cabeza pesa,
+    y a donde mira se va el cuerpo.
+  explicacion_larga: >
+    Mirar al suelo adelanta la cabeza, y la cabeza pesa entre cuatro y cinco
+    kilos. Eso encorva el tronco y cambia toda la cadena. Mirar al frente
+    alinea el cuello con la columna y, de paso, te deja ver el terreno con
+    tiempo de reaccionar.
+  contraindicaciones: [dolor_agudo_activo, molestia_cervical]
+
+- id: hombros-abajo
+  categoria: hombros
+  nivel: [principiante, intermedio, avanzado]
+  momento: durante-sesion
+  texto_voz: >
+    Baja los hombros. Sepáralos de las orejas, suéltalos, y sigue corriendo
+    igual.
+  explicacion_larga: >
+    Los hombros se van subiendo solos conforme te cansas, y esa tensión
+    consume energía que necesitas en las piernas. Es útil como recordatorio
+    periódico más que como corrección única: cada tantos minutos, sueltas y
+    sigues.
+  contraindicaciones: [dolor_agudo_activo, molestia_hombro]
+
+- id: respiracion-ritmica
+  categoria: respiracion
+  nivel: [principiante]
+  momento: pre-sesion
+  texto_voz: >
+    Respira por donde te salga, boca o nariz, pero hazlo hondo, desde la
+    panza. Si no puedes hablar, vas muy rápido.
+  explicacion_larga: >
+    La prueba del habla es el mejor medidor de esfuerzo que existe y no
+    necesita reloj: si puedes sostener una conversación, estás en zona
+    conversacional. La respiración superficial de pecho es señal de que el
+    ritmo va por encima de lo que toca ese día.
+  contraindicaciones: [dolor_agudo_activo, disnea_desproporcionada]

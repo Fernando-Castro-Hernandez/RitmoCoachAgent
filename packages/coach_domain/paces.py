@@ -38,7 +38,7 @@ _ZONE_EDGES: tuple[float, float, float, float, float, float] = (
 _PACE_PATTERN = re.compile(r"^(\d{1,3})\s*[:'′]\s*(\d{1,2})\s*[\"″]?$")
 
 
-def _round_half_up(value: float) -> int:
+def round_half_up(value: float) -> int:
     """Redondeo como lo espera una persona: el medio siempre sube.
 
     `round()` de Python usa redondeo bancario —al par más cercano— así que
@@ -56,7 +56,7 @@ def pace_from_run(distance_km: float, duration_sec: int) -> int:
         raise ValueError("la distancia debe ser mayor que cero")
     if duration_sec <= 0:
         raise ValueError("la duración debe ser mayor que cero")
-    return _round_half_up(duration_sec / distance_km)
+    return round_half_up(duration_sec / distance_km)
 
 
 def riegel_predict(known_km: float, known_sec: int, target_km: float) -> int:
@@ -71,19 +71,19 @@ def riegel_predict(known_km: float, known_sec: int, target_km: float) -> int:
         raise ValueError("las distancias deben ser mayores que cero")
     if known_sec <= 0:
         raise ValueError("el tiempo de referencia debe ser mayor que cero")
-    return _round_half_up(known_sec * (target_km / known_km) ** RIEGEL_EXPONENT)
+    return round_half_up(known_sec * (target_km / known_km) ** RIEGEL_EXPONENT)
 
 
 def threshold_pace(known_km: float, known_sec: int) -> int:
     """Ritmo umbral aproximado, ancla de todas las zonas."""
     t10 = riegel_predict(known_km, known_sec, 10.0)
-    return _round_half_up(t10 / 10.0 * THRESHOLD_FROM_10K)
+    return round_half_up(t10 / 10.0 * THRESHOLD_FROM_10K)
 
 
 def zones_from_effort(known_km: float, known_sec: int) -> Zones:
     """Las cinco zonas de ritmo derivadas de un esfuerzo conocido."""
     umbral = threshold_pace(known_km, known_sec)
-    bordes = [_round_half_up(umbral * factor) for factor in _ZONE_EDGES]
+    bordes = [round_half_up(umbral * factor) for factor in _ZONE_EDGES]
     # bordes va de rápido a lento; las zonas se numeran al revés.
     return Zones(
         z5=PaceRange(bordes[0], bordes[1]),
