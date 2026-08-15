@@ -14,7 +14,8 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
-uv.lock
+# uv.lock SÍ se versiona: es una aplicación, no una librería. Una resolución
+# distinta de aws-sdk-bedrock-runtime ya rompió el spike una vez (ADR 0002).
 
 # Node
 node_modules/

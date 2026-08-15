@@ -16,13 +16,15 @@ dependencies = [
   "structlog>=24.4",
   "prometheus-client>=0.21",
   "httpx>=0.28",
+  # Streaming bidireccional de Bedrock, verificado en la tarea A2 (ADR 0002).
+  # awscrt aporta el transporte HTTP/2 que la API exige.
+  # Sin tope superior: el ejemplo oficial fija <0.2.0, que corresponde a la API
+  # vieja con BedrockRuntimeClient. Nosotros usamos AsyncBedrockRuntimeClient.
+  "aws-sdk-bedrock-runtime>=0.2.0",
+  "smithy-aws-core>=0.0.1",
+  "awscrt>=0.32",
+  "aiohttp>=3.10",
 ]
-
-# El cliente de streaming bidireccional de Bedrock se fija en la tarea A2,
-# leyendo el requirements.txt del ejemplo oficial de aws-samples en lugar de
-# adivinar el nombre del paquete. Ver docs/fases/fase-3-plan-de-implementacion.md
-[project.optional-dependencies]
-voice = []
 
 [dependency-groups]
 dev = [
