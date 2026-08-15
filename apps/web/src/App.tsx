@@ -54,6 +54,17 @@ function estadoForzado() {
     )[p ?? ""],
     safety: p === "safety-red" ? ("flag" as const) : p === "safety-amber" ? ("caution" as const) : undefined,
     micDenied: p === "mic-denied",
+    // Turnos de ejemplo para poder capturar la transcripción, incluido un turno
+    // parcial: es el estado que el revisor no podía ver y que sólo existe a
+    // media frase.
+    turnos:
+      p === "listening" || p === "transcript"
+        ? ([
+            { role: "user", text: "ayer me molestó algo la rodilla" },
+            { role: "coach", text: "¿En qué parte exactamente? ¿Por dentro o por fuera?" },
+            { role: "user", text: "por fuera, cuando bajo escaleras", partial: true },
+          ] as const)
+        : undefined,
     pantalla: p === "onboarding" ? ("onboarding" as const) : p === "upload" ? ("captura" as const) : undefined,
   };
 }
@@ -239,7 +250,7 @@ export default function App() {
         session={{ ...SESION_DEMO, why: t("demoWhy") }}
         safety={forzado.safety ?? safety}
         referral={t("demoReferral")}
-        turns={turnos}
+        turns={forzado.turnos ? [...forzado.turnos] : turnos}
         voice={forzado.voice ?? maquina.state}
         level={forzado.voice === "LISTENING" ? 0.55 : nivel}
         micDenied={forzado.micDenied || maquina.context.micDenied}

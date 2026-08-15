@@ -91,9 +91,10 @@ export function Main({
           <ContextStrip ctx={ctx} />
 
           {specimen && safety !== "flag" && (
-            <p className="border-b border-ink-15 bg-caution/8 px-4 py-2 text-[0.8125rem] text-ink">
-              <span className="label !text-caution">{t("specimen")}</span>
-              <span aria-hidden="true"> — </span>
+            <p className="flex items-center gap-3 border-b border-ink-15 px-4 py-2 text-[0.8125rem] text-ink-70">
+              <span className="label shrink-0 border border-ink-30 px-1.5 py-0.5">
+                {t("specimen")}
+              </span>
               {t("specimenWhy")}
             </p>
           )}

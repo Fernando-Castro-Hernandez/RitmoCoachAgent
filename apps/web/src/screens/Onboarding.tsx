@@ -304,14 +304,24 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
             {t("skip")}
           </button>
         )}
-        <button
-          type="button"
-          onClick={avanzar}
-          disabled={!puedeAvanzar || guardando}
-          className="ml-auto min-h-14 flex-1 bg-proof px-5 text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:bg-ink-08 disabled:text-ink-70"
-        >
-          {guardando ? "…" : ultimo ? t("finish") : t("next")}
-        </button>
+        {/* Sin meta elegida no hay botón: hay un campo sin llenar diciendo qué
+            falta. Un primario oscuro y legible que no hace nada al tocarlo es
+            peor que uno ilegible, y en la primera pantalla que ve alguien que
+            llega en frío es la diferencia entre entender y quedarse atascado. */}
+        {puedeAvanzar ? (
+          <button
+            type="button"
+            onClick={avanzar}
+            disabled={guardando}
+            className="ml-auto min-h-14 flex-1 bg-proof px-5 text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:opacity-70"
+          >
+            {guardando ? "…" : ultimo ? t("finish") : t("next")}
+          </button>
+        ) : (
+          <p className="label ml-auto flex flex-1 items-center justify-center border-l border-ink-15 px-5 text-center">
+            {t("pickOne")}
+          </p>
+        )}
       </footer>
     </div>
   );

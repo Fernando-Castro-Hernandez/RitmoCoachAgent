@@ -28,7 +28,9 @@ export function Transcript({ turns }: { turns: Turn[] }) {
   // el que scrollea, y en móvil eso mueve la hoja bajo el dedo.
   useEffect(() => {
     const c = caja.current;
-    if (!c) return;
+    // Sin turnos no hay nada al final: desplazarse recorta el primer renglón
+    // vacío y le come la etiqueta, que es el nombre del campo.
+    if (!c || turns.length === 0) return;
     c.scrollTo({ top: c.scrollHeight, behavior: "smooth" });
   }, [turns.length, turns[turns.length - 1]?.text]);
 
