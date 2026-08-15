@@ -45,6 +45,37 @@ def _new_id() -> str:
     return str(uuid.uuid4())
 
 
+def _debe_emitir(content_start: dict[str, Any]) -> bool:
+    """Decide si el texto que viene tras este `contentStart` se muestra.
+
+    El modelo emite cada respuesta del asistente **dos veces**: primero una
+    versión especulativa y luego la final, idéntica. Se muestra la especulativa
+    —llega antes, así que la transcripción aparece cuanto antes— y se descarta la
+    final. Sin esto cada frase sale repetida.
+
+    El texto del usuario no trae etapa: pasa siempre.
+    """
+    campos = content_start.get("additionalModelFields")
+    if not campos:
+        return True
+    try:
+        etapa = json.loads(campos).get("generationStage")
+    except (json.JSONDecodeError, TypeError):
+        return True
+    return etapa != "FINAL"
+
+
+def _es_payload_de_control(contenido: str) -> bool:
+    """`{"interrupted": true}` llega como textOutput, pero no es habla."""
+    texto = contenido.strip()
+    if not (texto.startswith("{") and texto.endswith("}")):
+        return False
+    try:
+        return isinstance(json.loads(texto), dict)
+    except json.JSONDecodeError:
+        return False
+
+
 class NovaBridge:
     """Envuelve un stream bidireccional de Bedrock con una interfaz usable.
 
@@ -65,6 +96,7 @@ class NovaBridge:
         self._started = False
         self._closed = False
         self._audio_recibido = False
+        self._emitir_texto = True
 
     # ── ciclo de vida ────────────────────────────────────────────────
 
@@ -163,21 +195,29 @@ class NovaBridge:
             if traducido is not None:
                 yield traducido
 
-    @staticmethod
-    def _translate(evento: dict[str, Any]) -> BridgeEvent | None:
+    def _translate(self, evento: dict[str, Any]) -> BridgeEvent | None:
+        if "contentStart" in evento:
+            self._emitir_texto = _debe_emitir(evento["contentStart"])
+            return None
+
         if "audioOutput" in evento:
             return BridgeEvent("audio", {"audio_b64": evento["audioOutput"]["content"]})
+
         if "textOutput" in evento:
             salida = evento["textOutput"]
+            contenido = salida.get("content", "")
+            if not self._emitir_texto or _es_payload_de_control(contenido):
+                return None
             return BridgeEvent(
                 "transcript",
-                {"text": salida.get("content", ""), "role": salida.get("role", "ASSISTANT")},
+                {"text": contenido, "role": salida.get("role", "ASSISTANT")},
             )
+
         if "toolUse" in evento:
             return BridgeEvent("tool_call", evento["toolUse"])
         if "completionEnd" in evento:
             return BridgeEvent("turn_end")
-        return None  # contentStart, contentEnd, usageEvent: ruido para el navegador
+        return None  # contentEnd, usageEvent: ruido para el navegador
 
     # ── internos ─────────────────────────────────────────────────────
 

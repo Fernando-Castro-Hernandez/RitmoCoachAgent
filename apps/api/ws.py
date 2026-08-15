@@ -17,13 +17,15 @@ import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from apps.api.bridge import NovaBridge
+from apps.api.config import get_settings
 from apps.api.prompts import build_system_prompt
+from apps.api.renewal import ConversationContext, RenewingBridge
 
 log = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-async def _browser_to_bedrock(ws: WebSocket, bridge: NovaBridge) -> None:
+async def _browser_to_bedrock(ws: WebSocket, bridge: RenewingBridge) -> None:
     while True:
         mensaje = await ws.receive_json()
         tipo = mensaje.get("type")
@@ -35,7 +37,7 @@ async def _browser_to_bedrock(ws: WebSocket, bridge: NovaBridge) -> None:
             return
 
 
-async def _bedrock_to_browser(ws: WebSocket, bridge: NovaBridge) -> None:
+async def _bedrock_to_browser(ws: WebSocket, bridge: RenewingBridge) -> None:
     async for evento in bridge.events():
         if evento.kind == "audio":
             await ws.send_json({"type": "audio", "data": evento.payload["audio_b64"]})
@@ -57,10 +59,19 @@ async def _bedrock_to_browser(ws: WebSocket, bridge: NovaBridge) -> None:
 @router.websocket("/ws/voice/{user_id}")
 async def voice_socket(ws: WebSocket, user_id: str) -> None:
     await ws.accept()
-    bridge = NovaBridge()
+    settings = get_settings()
+
+    # El puente se releva a sí mismo antes de que Bedrock corte a los 8 minutos.
+    # El navegador no se entera: `events()` sobrevive al relevo (ADR 0002).
+    bridge = RenewingBridge(
+        NovaBridge,
+        ConversationContext(base_prompt=build_system_prompt()),
+        renew_after_s=settings.session_renew_after_s,
+        voice_id=settings.nova_voice_id,
+    )
 
     try:
-        await bridge.start(system_prompt=build_system_prompt())
+        await bridge.start()
         await ws.send_json({"type": "ready"})
         log.info("ws.session_open", user_id=user_id)
 

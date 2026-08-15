@@ -7,56 +7,10 @@ directamente al `ttfa_ms`, que es la métrica titular del proyecto (ADR 0012).
 
 from __future__ import annotations
 
-import asyncio
-import json
-from typing import Any
-
 import pytest
 
 from apps.api.bridge import BridgeEvent, NovaBridge
-
-
-class FakeInputStream:
-    def __init__(self) -> None:
-        self.sent: list[dict[str, Any]] = []
-        self.closed = False
-
-    async def send(self, chunk: Any) -> None:
-        self.sent.append(json.loads(chunk.value.bytes_.decode("utf-8")))
-
-    async def close(self) -> None:
-        self.closed = True
-
-
-class FakeReceiver:
-    def __init__(self, salidas: list[dict[str, Any]]) -> None:
-        self._pendientes = list(salidas)
-
-    async def receive(self) -> Any:
-        if not self._pendientes:
-            await asyncio.sleep(3600)  # se queda esperando, como el stream real
-        evento = self._pendientes.pop(0)
-
-        class _Res:
-            class value:  # noqa: N801
-                bytes_ = json.dumps(evento).encode("utf-8")
-
-        return _Res()
-
-
-class FakeStream:
-    """Imita el DuplexEventStream de smithy."""
-
-    def __init__(self, salidas: list[dict[str, Any]] | None = None) -> None:
-        self.input_stream = FakeInputStream()
-        self._receiver = FakeReceiver(salidas or [])
-
-    async def await_output(self) -> tuple[Any, FakeReceiver]:
-        return (None, self._receiver)
-
-
-def tipos_enviados(stream: FakeStream) -> list[str]:
-    return [next(iter(e["event"])) for e in stream.input_stream.sent]
+from apps.api.tests.conftest import FakeStream, tipos_enviados, transcripciones
 
 
 @pytest.mark.asyncio
@@ -147,6 +101,76 @@ async def test_los_eventos_de_salida_se_traducen() -> None:
     assert [e.kind for e in recibidos] == ["transcript", "audio", "turn_end"]
     assert recibidos[0].payload["text"] == "hola"
     assert recibidos[1].payload["audio_b64"] == "QUJD"
+
+
+@pytest.mark.asyncio
+async def test_descarta_el_payload_de_interrupcion() -> None:
+    """Nova Sonic manda {"interrupted": true} como textOutput. No es habla."""
+    stream = FakeStream(
+        salidas=[
+            {"event": {"textOutput": {"content": '{ "interrupted" : true }', "role": "ASSISTANT"}}},
+            {"event": {"textOutput": {"content": "hola", "role": "ASSISTANT"}}},
+            {"event": {"completionEnd": {}}},
+        ]
+    )
+    bridge = NovaBridge(stream=stream)
+    await bridge.start(system_prompt="x", voice_id="carlos")
+
+    textos = await transcripciones(bridge)
+    assert textos == ["hola"]
+
+
+@pytest.mark.asyncio
+async def test_no_duplica_el_texto_especulativo_y_el_final() -> None:
+    """El modelo emite cada respuesta dos veces: especulativa y final.
+
+    Se muestra la especulativa, que llega antes, y se descarta la final. Sin
+    esto la transcripción repite cada frase."""
+    stream = FakeStream(
+        salidas=[
+            {
+                "event": {
+                    "contentStart": {
+                        "role": "ASSISTANT",
+                        "additionalModelFields": '{"generationStage":"SPECULATIVE"}',
+                    }
+                }
+            },
+            {"event": {"textOutput": {"content": "vas muy bien", "role": "ASSISTANT"}}},
+            {
+                "event": {
+                    "contentStart": {
+                        "role": "ASSISTANT",
+                        "additionalModelFields": '{"generationStage":"FINAL"}',
+                    }
+                }
+            },
+            {"event": {"textOutput": {"content": "vas muy bien", "role": "ASSISTANT"}}},
+            {"event": {"completionEnd": {}}},
+        ]
+    )
+    bridge = NovaBridge(stream=stream)
+    await bridge.start(system_prompt="x", voice_id="carlos")
+
+    textos = await transcripciones(bridge)
+    assert textos == ["vas muy bien"], "la transcripción no debe repetirse"
+
+
+@pytest.mark.asyncio
+async def test_el_texto_del_usuario_siempre_pasa() -> None:
+    """Las transcripciones del usuario no traen etapa y no deben filtrarse."""
+    stream = FakeStream(
+        salidas=[
+            {"event": {"contentStart": {"role": "USER"}}},
+            {"event": {"textOutput": {"content": "me duele la rodilla", "role": "USER"}}},
+            {"event": {"completionEnd": {}}},
+        ]
+    )
+    bridge = NovaBridge(stream=stream)
+    await bridge.start(system_prompt="x", voice_id="carlos")
+
+    textos = await transcripciones(bridge)
+    assert textos == ["me duele la rodilla"]
 
 
 @pytest.mark.asyncio

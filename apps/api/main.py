@@ -15,12 +15,14 @@ from coach_domain import __version__ as domain_version
 from fastapi import FastAPI
 
 from apps.api.credentials import ensure_aws_credentials
+from apps.api.logging_setup import configure_logging
 from apps.api.prompts import VERSION as PROMPT_VERSION
 from apps.api.ws import router as ws_router
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    configure_logging()
     # Se resuelven al arrancar, no en cada sesión: si faltan, el problema se ve
     # en el log de inicio y no a mitad de una conversación.
     ensure_aws_credentials()

@@ -31,6 +31,7 @@ dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
   "pytest-cov>=6.0",
+  "pytest-timeout>=2.3",
   "hypothesis>=6.112",
   "mypy>=1.13",
   "ruff>=0.7",
@@ -103,6 +104,10 @@ mypy_path = "packages"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Los dobles del stream esperan indefinidamente cuando se les acaban las salidas,
+# igual que el stream real. Un test mal escrito cuelga la suite entera y también
+# colgaría CI, así que se corta a los 30 segundos.
+timeout = 30
 pythonpath = ["packages", "."]
 testpaths = ["packages/tests", "apps/api/tests"]
 filterwarnings = ["error::DeprecationWarning"]
