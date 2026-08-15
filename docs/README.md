@@ -11,8 +11,8 @@ Coach de voz conversacional para runners. Reto técnico de Adivor.
 | 2 | [Investigación de usuario](fases/fase-2-investigacion-usuario.md) | Entrevista a corredor experimentado, la pirámide y reajuste de alcance |
 | 3 | [Plan de implementación](fases/fase-3-plan-de-implementacion.md) | Seis fases de ejecución, tarea por tarea, viernes a lunes |
 | — | [Prompts del sistema](prompts.md) | Las cuatro capas del prompt, la regla de clarificación autónoma y cómo se verifica |
-| — | [Contexto de producto](product.md) | Qué es, para quién, dónde se usa y las cuatro reglas que no se negocian |
-| — | [Brief de diseño](design.md) | Encargo, restricciones físicas y estados del orbe. Abierto en lo estético |
+| — | [Contexto de producto](PRODUCT.md) | Qué es, para quién, dónde se usa y las cuatro reglas que no se negocian |
+| — | [Brief de diseño](DESIGN.md) | Encargo, restricciones físicas y estados del orbe. Abierto en lo estético |
 
 La Fase 1 es un documento HTML: ábrelo en el navegador o consulta la
 [versión publicada](https://claude.ai/code/artifact/85cb6fa3-e64b-4037-a117-a3202dbc1474).
