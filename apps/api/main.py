@@ -18,6 +18,7 @@ from apps.api.credentials import ensure_aws_credentials
 from apps.api.logging_setup import configure_logging
 from apps.api.profile_api import router as profile_router
 from apps.api.prompts import VERSION as PROMPT_VERSION
+from apps.api.telegram_api import router as telegram_router
 from apps.api.vision_api import router as vision_router
 from apps.api.ws import router as ws_router
 
@@ -43,6 +44,7 @@ app = FastAPI(
 app.include_router(ws_router)
 app.include_router(profile_router)
 app.include_router(vision_router)
+app.include_router(telegram_router)
 
 
 @app.get("/api/health")

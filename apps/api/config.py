@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     bedrock_guardrail_version: str = "DRAFT"
     telegram_bot_token: str = ""
     telegram_bot_username: str = ""
+    # El webhook es un endpoint público que escribe vinculaciones. Telegram
+    # reenvía este valor en `X-Telegram-Bot-Api-Secret-Token`; sin él configurado
+    # el endpoint se cierra en vez de abrirse (ver `telegram_api.py`).
+    telegram_webhook_secret: str = ""
 
     @property
     def vision_models(self) -> list[str]:
