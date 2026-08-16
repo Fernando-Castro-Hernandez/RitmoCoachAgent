@@ -204,13 +204,16 @@ def _datos_del_corredor(profile: dict[str, Any] | None, week_context: dict[str, 
 # afirmación que tiene que venir del motor; «un par de días» y «los cinco
 # minutos de calentamiento» no lo son. Perseguir todo número produciría tanto
 # falso positivo que la métrica dejaría de significar nada.
-_UNIDADES = r"(?:km|kil[oó]metros?|k)\b"
+_UNIDADES = r"(?:kms|km|kil[oó]metros?|k)\b"
 _PATRONES = (
     re.compile(rf"(\d+(?:[.,]\d+)?)\s*{_UNIDADES}", re.IGNORECASE),
     re.compile(r"\b(\d{1,2}:\d{2})\b"),  # ritmos y tiempos
     re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:minutos?|min)\b", re.IGNORECASE),
     re.compile(r"(\d+)\s*semanas?\b", re.IGNORECASE),
     re.compile(r"(\d+)\s*(?:pasos por minuto|spm)\b", re.IGNORECASE),
+    # Pulsaciones: el motor las lee del reloj o las calcula por zona, así que
+    # una frecuencia cardíaca dicha al aire es tan inventada como una distancia.
+    re.compile(r"(\d+)\s*(?:ppm|bpm|pulsaciones)\b", re.IGNORECASE),
 )
 
 
