@@ -195,6 +195,32 @@ class ConversationMemoryRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_ahora)
 
 
+class NudgeLogRow(Base):
+    """Cada aviso proactivo que salió. Sólo se anexa (tarea E2).
+
+    Es a la vez el registro de qué se le mandó al corredor y el candado que
+    impide mandárselo dos veces. Sin él, un flujo de n8n que se reintenta —o dos
+    instancias corriendo a la vez— repiten el mismo recordatorio.
+
+    **`sent_on` es la fecha LOCAL del corredor**, y es la única fecha local que
+    se guarda en todo el esquema. La cabecera de este archivo dice «UTC siempre»
+    y la regla sigue en pie: aquí la clave de deduplicación *es* «una vez por
+    mañana suya», y en UTC eso no se puede expresar — la mañana de un corredor
+    en Ciudad de México y la de uno en Toronto caen en instantes distintos y a
+    veces en días UTC distintos.
+    """
+
+    __tablename__ = "nudge_log"
+    __table_args__ = (Index("ix_nudge_log_user_flow", "user_id", "flow", "sent_on"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    flow: Mapped[str] = mapped_column(String(32))
+    sent_on: Mapped[date] = mapped_column(Date)
+    text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_ahora)
+
+
 class TelegramLinkRow(Base):
     """Vinculación de la cuenta con un chat de Telegram (tarea E1)."""
 

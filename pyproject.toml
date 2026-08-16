@@ -27,6 +27,10 @@ dependencies = [
   "aioboto3>=15.5.0",
   "python-multipart>=0.0.32",
   "anthropic>=0.122.0",
+  # Explícita, no transitiva. `zoneinfo` lee la base de datos del sistema, y una
+  # imagen slim de Docker no la trae — sin esto los recordatorios de la tarea E2
+  # caerían todos en la zona de reserva sin que nada fallara a la vista.
+  "tzdata>=2026.3",
 ]
 
 [dependency-groups]

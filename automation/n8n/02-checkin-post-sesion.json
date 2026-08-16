@@ -1,0 +1,142 @@
+{
+  "name": "Ritmo · Check-in tras la sesión",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-checkin",
+      "name": "Cada hora en punto (UTC)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        0
+      ],
+      "notes": "Corre las 24 horas del día, en UTC. No intenta acertar la hora del corredor: eso lo resuelve la API, que conoce su zona. Al minuto 5 para no chocar con el resto de tareas del servidor en punto."
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RITMO_API_URL }}/api/automation/due/checkin",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Ritmo-Automation-Key",
+              "value": "={{ $env.RITMO_AUTOMATION_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "due-checkin",
+      "name": "¿A quién le toca ahora?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        0
+      ],
+      "notes": "Devuelve la lista con el chat_id y el TEXTO YA REDACTADO. El texto se compone en la API para que las cifras salgan del motor y para que la regla de «en rojo no se prescribe» viva donde hay pruebas que la cubren, y no repartida entre cinco JSON."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "nudges",
+        "options": {}
+      },
+      "id": "split-checkin",
+      "name": "Uno por corredor",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        280,
+        0
+      ],
+      "notes": "Si la lista viene vacía no se produce ningún elemento y el flujo termina aquí. No hace falta un IF: la hora equivocada es el caso normal, no un error."
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "tg-checkin",
+      "name": "Mandar por Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REEMPLAZAR_AL_IMPORTAR",
+          "name": "Ritmo · bot"
+        }
+      },
+      "notes": "La credencial hay que volver a elegirla al importar: los identificadores de credencial son de cada instancia y el token no se versiona."
+    }
+  ],
+  "connections": {
+    "Cada hora en punto (UTC)": {
+      "main": [
+        [
+          {
+            "node": "¿A quién le toca ahora?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿A quién le toca ahora?": {
+      "main": [
+        [
+          {
+            "node": "Uno por corredor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uno por corredor": {
+      "main": [
+        [
+          {
+            "node": "Mandar por Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ritmo"
+  },
+  "tags": [
+    {
+      "name": "ritmo"
+    }
+  ],
+  "notes": "A las 20:00 locales, y sólo a quien tenía sesión hoy y no registró nada. Preguntarle a quien ya lo contó es cómo se silencia un bot."
+}

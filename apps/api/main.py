@@ -14,6 +14,7 @@ from typing import Any
 from coach_domain import __version__ as domain_version
 from fastapi import FastAPI
 
+from apps.api.automation_api import router as automation_router
 from apps.api.credentials import ensure_aws_credentials
 from apps.api.logging_setup import configure_logging
 from apps.api.profile_api import router as profile_router
@@ -45,6 +46,7 @@ app.include_router(ws_router)
 app.include_router(profile_router)
 app.include_router(vision_router)
 app.include_router(telegram_router)
+app.include_router(automation_router)
 
 
 @app.get("/api/health")

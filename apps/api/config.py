@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # el endpoint se cierra en vez de abrirse (ver `telegram_api.py`).
     telegram_webhook_secret: str = ""
 
+    # Llave que usa n8n para preguntar a quién le toca un aviso. Esas respuestas
+    # llevan datos de salud de personas concretas, así que sin llave el endpoint
+    # cierra (503) en vez de caer abierto. Ver `automation_api.py`.
+    automation_api_key: str = ""
+
     @property
     def vision_models(self) -> list[str]:
         return [m.strip() for m in self.vision_model_chain.split(",") if m.strip()]

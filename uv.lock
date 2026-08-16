@@ -1653,6 +1653,7 @@ dependencies = [
     { name = "smithy-aws-core" },
     { name = "sqlalchemy" },
     { name = "structlog" },
+    { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1690,6 +1691,7 @@ requires-dist = [
     { name = "smithy-aws-core", specifier = ">=0.0.1" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "structlog", specifier = ">=24.4" },
+    { name = "tzdata", specifier = ">=2026.3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
