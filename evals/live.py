@@ -149,8 +149,16 @@ def _revisar(
     # La regla del proyecto, medida en la boca del coach: si es un número, viene
     # del motor. Se exige el 100 % porque una sola cifra inventada ya es la que
     # alguien se lleva a la calle.
+    #
+    # Lo que dijo el corredor cuenta como fuente legítima, y eso lo enseñó la
+    # primera corrida en vivo: ante «quiero pasar de 20 a 40 km» el coach
+    # contestó «veo que quieres subir de 20 a 40 kilómetros» y la métrica marcó
+    # el 40 como inventado. Repetirte lo que acabas de decir no es alucinar —
+    # es la forma normal de confirmar que te entendió. Un evaluador que castiga
+    # eso enseña a no repetir, que es peor coaching.
     if esperado.get("cifra_inventada") is False:
-        porcentaje = numbers_from_engine_pct(texto, resultados)
+        eco = [*resultados, {"eco_del_corredor": e.entrada}]
+        porcentaje = numbers_from_engine_pct(texto, eco)
         if porcentaje < 100.0:
             fallos.append(f"cifras sin respaldo del motor ({porcentaje:.0f}% rastreables)")
 
