@@ -17,6 +17,7 @@ Ver ADR 0002 para las reglas no documentadas que este módulo encapsula.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 AUDIO_IN_HZ = 16_000
@@ -136,6 +137,51 @@ def audio_input(prompt_name: str, content_name: str, pcm16_b64: str) -> Event:
             }
         }
     }
+
+
+def tool_result_block(
+    prompt_name: str, content_name: str, *, tool_use_id: str, result: Any
+) -> list[Event]:
+    """Devuelve al modelo lo que dio una herramienta.
+
+    Tres eventos, como todo bloque de contenido: apertura, contenido y cierre.
+    El `toolUseId` es lo que empareja la respuesta con la llamada — sin él el
+    modelo no sabe a cuál de sus preguntas se le está contestando.
+
+    El resultado viaja **serializado como texto**, no como objeto. Es lo que
+    exige el bloque de tipo TOOL, y tiene una consecuencia que conviene tener
+    presente: el modelo lee un JSON, así que los nombres de campo de las
+    herramientas son parte del prompt efectivo. Por eso se llaman `needs_context`
+    y `next_question` y no `nc` y `q`.
+    """
+    return [
+        {
+            "event": {
+                "contentStart": {
+                    "promptName": prompt_name,
+                    "contentName": content_name,
+                    "interactive": False,
+                    "type": "TOOL",
+                    "role": "TOOL",
+                    "toolResultInputConfiguration": {
+                        "toolUseId": tool_use_id,
+                        "type": "TEXT",
+                        "textInputConfiguration": {"mediaType": "text/plain"},
+                    },
+                }
+            }
+        },
+        {
+            "event": {
+                "toolResult": {
+                    "promptName": prompt_name,
+                    "contentName": content_name,
+                    "content": json.dumps(result, ensure_ascii=False, default=str),
+                }
+            }
+        },
+        content_end(prompt_name, content_name),
+    ]
 
 
 def content_end(prompt_name: str, content_name: str) -> Event:

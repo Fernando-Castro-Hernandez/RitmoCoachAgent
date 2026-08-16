@@ -18,8 +18,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from apps.api.bridge import NovaBridge
 from apps.api.config import get_settings
+from apps.api.db.session import get_sessionmaker
 from apps.api.prompts import build_system_prompt
 from apps.api.renewal import ConversationContext, RenewingBridge
+from apps.api.tool_runner import ToolRunner
 
 log = structlog.get_logger(__name__)
 router = APIRouter()
@@ -65,10 +67,19 @@ async def voice_socket(ws: WebSocket, user_id: str) -> None:
     await ws.accept()
     settings = get_settings()
 
+    # El `user_id` sale del WebSocket y se le impone a cada herramienta. El que
+    # mande el modelo en los argumentos se descarta: ver `tool_runner.py`.
+    herramientas = ToolRunner(get_sessionmaker(), user_id=user_id)
+
     # El puente se releva a sí mismo antes de que Bedrock corte a los 8 minutos.
     # El navegador no se entera: `events()` sobrevive al relevo (ADR 0002).
+    #
+    # El ejecutor viaja en la fábrica para que el puente NUEVO de cada relevo
+    # nazca con las herramientas ya declaradas. Sin esto el coach perdería la
+    # capacidad de consultar nada a los siete minutos y medio de conversación,
+    # que es el momento en que menos se nota mirando y más duele.
     bridge = RenewingBridge(
-        NovaBridge,
+        lambda: NovaBridge(tool_runner=herramientas),
         ConversationContext(base_prompt=build_system_prompt()),
         renew_after_s=settings.session_renew_after_s,
         voice_id=settings.nova_voice_id,

@@ -25,6 +25,7 @@ import structlog
 from apps.api import protocol
 from apps.api.config import Settings, get_settings
 from apps.api.metrics import TurnTimer
+from apps.api.tool_specs import tool_specs
 
 log = structlog.get_logger(__name__)
 
@@ -66,6 +67,25 @@ def _debe_emitir(content_start: dict[str, Any]) -> bool:
     return etapa != "FINAL"
 
 
+def _argumentos_de(peticion: dict[str, Any]) -> dict[str, Any]:
+    """Los argumentos de un `toolUse`, vengan como objeto o como cadena.
+
+    Nova los manda serializados en `content`, pero no siempre: en algunos turnos
+    llegan ya como diccionario. Aceptar las dos formas cuesta cuatro líneas y
+    evita un fallo que sólo aparecería en la conversación número treinta.
+    """
+    crudo = peticion.get("content", peticion.get("input", {}))
+    if isinstance(crudo, dict):
+        return crudo
+    if isinstance(crudo, str):
+        try:
+            cargado = json.loads(crudo)
+        except json.JSONDecodeError:
+            return {}
+        return cargado if isinstance(cargado, dict) else {}
+    return {}
+
+
 def _es_payload_de_control(contenido: str) -> bool:
     """`{"interrupted": true}` llega como textOutput, pero no es habla."""
     texto = contenido.strip()
@@ -90,8 +110,14 @@ class NovaBridge:
         stream: Any | None = None,
         settings: Settings | None = None,
         clock: Callable[[], float] | None = None,
+        tool_runner: Any | None = None,
     ) -> None:
         self._stream = stream
+        # Sin ejecutor no se le declaran herramientas al modelo. Es lo que
+        # permite seguir probando el puente «pelado» sin base de datos, y lo que
+        # hace que una sesión mal cableada calle en vez de pedir cosas que nadie
+        # va a contestarle.
+        self._tools = tool_runner
         self._settings = settings or get_settings()
         # El reloj se inyecta para poder medir la latencia en una prueba sin
         # dormir de verdad. En producción es `time.monotonic`.
@@ -118,7 +144,10 @@ class NovaBridge:
                 temperature=self._settings.temperature,
             )
         )
-        await self._send(protocol.prompt_start(self._prompt_name, voice_id=voice))
+        especificaciones = tool_specs() if self._tools is not None else None
+        await self._send(
+            protocol.prompt_start(self._prompt_name, voice_id=voice, tools=especificaciones)
+        )
 
         for evento in protocol.text_block(
             self._prompt_name, _new_id(), role="SYSTEM", text=system_prompt
@@ -128,7 +157,12 @@ class NovaBridge:
         # El bloque de audio queda ABIERTO: los frames del micrófono entran aquí.
         await self._send(protocol.audio_block_start(self._prompt_name, self._audio_content))
         self._started = True
-        log.info("bridge.started", model=self._settings.nova_model_id, voice=voice)
+        log.info(
+            "bridge.started",
+            model=self._settings.nova_model_id,
+            voice=voice,
+            herramientas=len(especificaciones or []),
+        )
 
     async def close(self) -> None:
         if self._closed or self._stream is None:
@@ -202,6 +236,11 @@ class NovaBridge:
             traducido = self._translate(evento)
             if traducido is not None:
                 yield traducido
+                # El evento se emite ANTES de ejecutar: la interfaz enseña
+                # «consultando el plan…» mientras la consulta ocurre, en vez de
+                # después, que es cuando ya no sirve de nada.
+                if traducido.kind == "tool_call":
+                    await self._responder_herramienta(traducido.payload)
 
     def _translate(self, evento: dict[str, Any]) -> BridgeEvent | None:
         if "contentStart" in evento:
@@ -245,6 +284,25 @@ class NovaBridge:
         if "completionEnd" in evento:
             return BridgeEvent("turn_end")
         return None  # contentEnd, usageEvent: ruido para el navegador
+
+    async def _responder_herramienta(self, peticion: dict[str, Any]) -> None:
+        """Ejecuta lo que pidió el modelo y le devuelve el resultado.
+
+        Sin ejecutor no se hace nada, y es lo correcto: si no hay herramientas
+        declaradas, este evento no debería haber llegado nunca.
+        """
+        if self._tools is None:
+            return
+
+        nombre = peticion.get("toolName") or peticion.get("name") or ""
+        tool_use_id = peticion.get("toolUseId", "")
+        argumentos = _argumentos_de(peticion)
+
+        resultado = await self._tools.run(nombre, argumentos)
+        for evento in protocol.tool_result_block(
+            self._prompt_name, _new_id(), tool_use_id=tool_use_id, result=resultado
+        ):
+            await self._send(evento)
 
     # ── internos ─────────────────────────────────────────────────────
 
