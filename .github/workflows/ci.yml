@@ -36,8 +36,15 @@ jobs:
       - name: Suite completa
         run: uv run poe test
 
-      # Bloquea la entrega si el sistema deja de detectar una bandera roja.
-      - name: Evaluaciones golden
+      # Bloquea la entrega si el motor deja de escalar una bandera roja o si el
+      # coach pudiera generar un plan sin contexto.
+      #
+      # Es la capa DETERMINISTA de la suite: sin red, sin modelo, milisegundos.
+      # La capa en vivo —¿el modelo entiende «se me fue la vista» como un
+      # síncope?— necesita AWS y tarda minutos, así que corre a mano antes de
+      # entregar (`uv run poe evals-live`) y no desde aquí. El informe lo dice
+      # con esas palabras para que un verde de CI no se lea como más de lo que es.
+      - name: Evaluaciones golden (capa determinista)
         run: uv run poe evals
 
   frontend:

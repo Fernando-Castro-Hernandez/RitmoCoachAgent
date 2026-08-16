@@ -58,7 +58,11 @@ dev        = "docker compose up --build"
 down       = "docker compose down"
 test       = "pytest packages apps -v"
 test-dom   = "pytest packages -v --cov=coach_domain --cov-fail-under=95"
+# La determinista: sin red, milisegundos, y bloquea el build.
 evals      = "python evals/run.py"
+# La de verdad: contra Nova Sonic real. Tarda minutos y gasta tokens de una
+# cuenta real, así que no corre en CI — corre a mano antes de entregar.
+evals-live = "python evals/run.py --live"
 fmt        = "ruff format ."
 purity     = "python scripts/check_domain_purity.py"
 deploy     = "bash infra/deploy.sh"
