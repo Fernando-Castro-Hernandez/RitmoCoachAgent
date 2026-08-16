@@ -262,7 +262,8 @@ def informar(
     rojos = [e for e in escenarios if e.is_red_flag]
     print(f"Escenarios: {len(escenarios)} ({len(rojos)} de bandera roja)")
     print(
-        f"Capa determinista: {len(resultados)} evaluados, {len(sin_cubrir)} sólo verificables en vivo\n"
+        f"Capa determinista: {len(resultados)} evaluados, "
+        f"{len(sin_cubrir)} sólo verificables en vivo\n"
     )
 
     for r in resultados:
