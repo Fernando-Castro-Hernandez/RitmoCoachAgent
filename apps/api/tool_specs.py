@@ -44,20 +44,19 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         "La sesión que le toca hoy al corredor, con distancia, ritmo objetivo y "
         "el porqué. Úsala SIEMPRE antes de decir qué entrenamiento toca: nunca "
         "digas una distancia ni un ritmo que no venga de aquí.",
-        {"user_id": {"type": "string", "description": "identificador del corredor"}},
+        {},
     ),
     "get_week_context": (
         "Cómo va la semana: volumen acumulado, sesiones hechas y el estado de la "
         "puerta de seguridad. Úsala para responder «¿cómo voy?» y antes de "
         "cualquier ajuste.",
-        {"user_id": {"type": "string"}},
+        {},
     ),
     "log_run": (
         "Registra una carrera que el corredor acaba de contar. **No mandes el "
         "ritmo: lo calcula el motor** a partir de la distancia y el tiempo, y te "
         "lo devuelve. Si sólo tienes uno de los dos datos, pregunta el otro.",
         {
-            "user_id": {"type": "string"},
             "distance_km": {"type": "number", "description": "kilómetros recorridos"},
             "duration_sec": {"type": "integer", "description": "duración en segundos"},
             "rpe": {
@@ -73,7 +72,6 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         "seguridad se evalúa con esto y puede cambiar lo que tienes permitido "
         "decir. Las banderas van en inglés, tal como se listan.",
         {
-            "user_id": {"type": "string"},
             "pain_score": {"type": "integer", "description": "dolor de 0 a 10"},
             "pain_area": {"type": "string", "description": "dónde, en palabras del corredor"},
             "flags": {
@@ -96,7 +94,6 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         "error — haz la primera pregunta y vuelve a intentarlo cuando la "
         "conteste. Insistir sin contestar no cambia el resultado.",
         {
-            "user_id": {"type": "string"},
             "distance": {
                 "type": "string",
                 "enum": ["5k", "10k", "21k", "42k"],
@@ -111,7 +108,6 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         "molestia. Nunca ajustes el plan describiéndolo con palabras: se ajusta "
         "aquí o no se ajusta.",
         {
-            "user_id": {"type": "string"},
             "reason": {"type": "string", "description": "por qué se ajusta, en una frase"},
         },
     ),
@@ -126,7 +122,6 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         "poco a poco desde la suya; no la inventes ni cites los 180 pasos por "
         "minuto de internet.",
         {
-            "user_id": {"type": "string"},
             "weeks_worked": {"type": "integer", "description": "semanas trabajando la cadencia"},
         },
     ),
@@ -141,18 +136,25 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
     ),
 }
 
-# Qué es indispensable en cada una. `user_id` lo inyecta el servidor, pero se
-# declara obligatorio igualmente: si no, el modelo a veces lo omite y la
-# herramienta acaba respondiendo por el corredor equivocado en una demo con dos.
+# Qué es indispensable en cada una.
+#
+# **`user_id` no aparece en ningún esquema, y eso lo enseñó una sonda en vivo.**
+# Lo declaré obligatorio razonando que así el modelo no lo omitiría. El modelo
+# no lo omitió: contestó «dime tu user_id para seguir». Claro — no lo tiene, y
+# un parámetro obligatorio que no puede rellenar lo convierte en una pregunta
+# al corredor. Un identificador interno filtrado a la conversación.
+#
+# La forma correcta es la que ya estaba en el ejecutor: se impone, no se pide.
+# Si el modelo no puede verlo, no puede preguntarlo ni equivocarse con él.
 _OBLIGATORIOS: dict[str, list[str]] = {
-    "get_today_session": ["user_id"],
-    "get_week_context": ["user_id"],
-    "log_run": ["user_id", "distance_km", "duration_sec"],
-    "report_wellness": ["user_id", "pain_score"],
-    "create_plan": ["user_id", "distance"],
-    "adjust_plan": ["user_id", "reason"],
+    "get_today_session": [],
+    "get_week_context": [],
+    "log_run": ["distance_km", "duration_sec"],
+    "report_wellness": ["pain_score"],
+    "create_plan": ["distance"],
+    "adjust_plan": ["reason"],
     "explain_technique_cue": ["cue_id"],
-    "get_target_cadence": ["user_id"],
+    "get_target_cadence": [],
     "environment_check": ["temp_c"],
 }
 

@@ -249,3 +249,17 @@ def test_los_argumentos_se_leen_vengan_como_vengan(
     peticion: dict[str, Any], esperado: dict[str, Any]
 ) -> None:
     assert _argumentos_de(peticion) == esperado
+
+
+def test_ningun_esquema_le_pide_el_user_id_al_modelo() -> None:
+    """Lo enseñó una sonda contra el modelo real.
+
+    Declarado como obligatorio, el modelo contestó «dime tu user_id para
+    seguir»: no lo tiene, y un parámetro que no puede rellenar se convierte en
+    una pregunta al corredor. Un identificador interno filtrado a la
+    conversación. Se impone en el ejecutor; el modelo no lo ve.
+    """
+    for especificacion in tool_specs():
+        esquema = json.loads(especificacion["toolSpec"]["inputSchema"]["json"])
+        assert "user_id" not in esquema["properties"]
+        assert "user_id" not in esquema["required"]
