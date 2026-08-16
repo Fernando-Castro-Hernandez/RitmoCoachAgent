@@ -16,6 +16,7 @@ from fastapi import FastAPI
 
 from apps.api.automation_api import router as automation_router
 from apps.api.credentials import ensure_aws_credentials
+from apps.api.debug import router as debug_router
 from apps.api.logging_setup import configure_logging
 from apps.api.profile_api import router as profile_router
 from apps.api.prompts import VERSION as PROMPT_VERSION
@@ -47,6 +48,7 @@ app.include_router(profile_router)
 app.include_router(vision_router)
 app.include_router(telegram_router)
 app.include_router(automation_router)
+app.include_router(debug_router)
 
 
 @app.get("/api/health")

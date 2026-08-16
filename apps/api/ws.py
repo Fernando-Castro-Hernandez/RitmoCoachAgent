@@ -33,6 +33,10 @@ async def _browser_to_bedrock(ws: WebSocket, bridge: RenewingBridge) -> None:
             await bridge.send_audio(mensaje["data"])
         elif tipo == "text":
             await bridge.send_text(mensaje["text"])
+        elif tipo == "barge_in":
+            # No manda nada a Bedrock: sólo arranca el cronómetro de la
+            # interrupción. Nova ya detecta el habla encima por su cuenta.
+            bridge.mark_barge_in()
         elif tipo == "stop":
             return
 

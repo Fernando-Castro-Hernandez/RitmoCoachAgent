@@ -16,7 +16,7 @@ import base64
 import contextlib
 import json
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -24,6 +24,7 @@ import structlog
 
 from apps.api import protocol
 from apps.api.config import Settings, get_settings
+from apps.api.metrics import TurnTimer
 
 log = structlog.get_logger(__name__)
 
@@ -88,9 +89,13 @@ class NovaBridge:
         *,
         stream: Any | None = None,
         settings: Settings | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._stream = stream
         self._settings = settings or get_settings()
+        # El reloj se inyecta para poder medir la latencia en una prueba sin
+        # dormir de verdad. En producción es `time.monotonic`.
+        self.metrics = TurnTimer(clock)
         self._prompt_name = _new_id()
         self._audio_content = _new_id()
         self._started = False
@@ -160,6 +165,9 @@ class NovaBridge:
         await self._end_user_turn()
 
     async def _end_user_turn(self) -> None:
+        # En modo texto el fin del turno lo marcamos nosotros, así que aquí el
+        # TTFA se mide de verdad desde el instante en que el corredor envió.
+        self.metrics.user_speech_end()
         # Un bloque de audio que nunca recibió datos no se puede cerrar:
         # «Cannot end content as no content data was received». En un turno de
         # sólo texto hay que rellenarlo con silencio antes de cerrarlo.
@@ -208,13 +216,25 @@ class NovaBridge:
             return None
 
         if "audioOutput" in evento:
+            self.metrics.first_audio_out()
             return BridgeEvent("audio", {"audio_b64": evento["audioOutput"]["content"]})
 
         if "textOutput" in evento:
             salida = evento["textOutput"]
             contenido = salida.get("content", "")
-            if not self._emitir_texto or _es_payload_de_control(contenido):
+            if _es_payload_de_control(contenido):
+                # `{"interrupted": true}` es el acuse de que el modelo dejó de
+                # hablar: cierra el cronómetro de la interrupción.
+                self.metrics.barge_in_stopped()
                 return None
+            if not self._emitir_texto:
+                return None
+            if salida.get("role") == "USER":
+                # La transcripción final del usuario es la primera señal que
+                # tiene el servidor de que el turno acabó. No es el instante en
+                # que dejó de hablar —eso pasa en su micrófono— así que el TTFA
+                # real que percibe es algo mayor. Ver la cabecera de metrics.py.
+                self.metrics.user_speech_end()
             return BridgeEvent(
                 "transcript",
                 {"text": contenido, "role": salida.get("role", "ASSISTANT")},

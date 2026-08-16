@@ -118,6 +118,16 @@ class RenewingBridge:
             self._context.remember("USER", text)
             await self._active.send_text(text)
 
+    def mark_barge_in(self) -> None:
+        """El navegador detectó que el corredor interrumpió al coach.
+
+        Arranca el cronómetro que cierra el acuse `{"interrupted": true}` de
+        Nova. Tiene que venir del navegador porque el servidor no puede saber
+        cuándo empezó a hablar encima: eso pasa en el micrófono.
+        """
+        if self._active is not None:
+            self._active.metrics.barge_in_start()
+
     # ── salida ───────────────────────────────────────────────────────
 
     async def events(self) -> AsyncIterator[BridgeEvent]:
