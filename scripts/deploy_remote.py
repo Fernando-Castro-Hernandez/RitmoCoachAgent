@@ -166,7 +166,70 @@ def ssm(instancia: str, script: str, minutos: int = 25) -> tuple[int, str]:
                     salida += "\n--- stderr ---\n" + error[-4000:]
                 return (0 if d["Status"] == "Success" else 1), salida
         time.sleep(15)
-    return 1, "sin terminar"
+
+    # Se acabó la espera de ESTE script, no la del comando: SSM lo lanzó con
+    # una hora de plazo y allá sigue. Decirlo importa — «sin terminar» a secas
+    # se lee como «falló», y la reacción correcta no es volver a desplegar
+    # encima, es ir a mirar cómo acabó.
+    return 1, (
+        f"la espera local se agotó a los {minutos} min; el comando {cid} "
+        f"SIGUE CORRIENDO en la instancia.\n"
+        f"míralo con: aws ssm get-command-invocation --command-id {cid} "
+        f"--instance-id {instancia}"
+    )
+
+
+def empaquetar_y_subir() -> tuple[int, str]:
+    """Empaqueta el commit actual y lo sube a S3. Devuelve (código, commit).
+
+    **Este paso faltaba, y su ausencia no se notaba: se notaba al revés.** El
+    script bajaba a la instancia el artefacto que hubiera en S3, sin comprobar
+    de cuándo era, y terminaba anunciando «Desplegado». Un despliegue que en
+    realidad reinstalaba código de hace seis horas y decía que había ido bien.
+    Lo cacé porque la ruta nueva contestaba 404 en producción con las pruebas
+    en verde; sin esa casualidad, la demo del lunes habría corrido sobre un
+    commit que nadie eligió.
+
+    Se empaqueta con `git archive` y no con `tar` del directorio: así lo que
+    viaja es exactamente un commit —sin `.env`, sin `node_modules`, sin la base
+    de datos local— y no «lo que hubiera en el disco». Que el artefacto tenga
+    un nombre de commit es lo que hace que la pregunta «¿qué está corriendo
+    allá?» tenga respuesta.
+    """
+    sucio = subprocess.run(
+        ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=RAIZ
+    ).stdout.strip()
+    commit = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=RAIZ
+    ).stdout.strip()
+
+    if sucio:
+        # No se aborta: a veces hay que desplegar con algo sin commitear. Pero
+        # se dice, porque entonces lo que corre allá no está en ningún sitio.
+        print(f"AVISO: hay cambios sin commitear; se despliega {commit} sin ellos.")
+
+    destino = Path(tempfile.gettempdir()) / "ritmo.tar.gz"
+    empaque = subprocess.run(
+        ["git", "archive", "--format=tar.gz", "-o", str(destino), "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=RAIZ,
+    )
+    if empaque.returncode:
+        print("no pude empaquetar: " + empaque.stderr)
+        return 1, commit
+
+    subida = subprocess.run(
+        ["aws", "s3", "cp", str(destino), ARTEFACTO, "--only-show-errors"],
+        capture_output=True,
+        text=True,
+    )
+    if subida.returncode:
+        print("no pude subir el artefacto: " + subida.stderr)
+        return 1, commit
+
+    print(f"artefacto subido · {commit} · {destino.stat().st_size // 1024} KiB")
+    return 0, commit
 
 
 def main() -> int:
@@ -249,6 +312,11 @@ def main() -> int:
         return codigo
     if args.solo_env:
         return 0
+
+    # Antes de traer nada: subir lo que se quiere traer.
+    codigo, commit = empaquetar_y_subir()
+    if codigo:
+        return codigo
 
     # Traer y extraer va aquí y no en `deploy.sh` por un motivo tonto y real:
     # `deploy.sh` viaja DENTRO del artefacto, así que no puede ser quien lo

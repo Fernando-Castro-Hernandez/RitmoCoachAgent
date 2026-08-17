@@ -110,3 +110,53 @@ def test_la_direccion_publica_se_impone() -> None:
 def test_las_lineas_que_no_son_variables_se_ignoran(ruido: str) -> None:
     salida = env_para_el_servidor(f"{ruido}\nDB_PASSWORD=p", DOMINIO)
     assert "DB_PASSWORD=p" in salida
+
+
+# ── que se despliegue lo que se cree que se despliega ─────────────────
+
+
+def test_el_artefacto_se_sube_antes_de_traerlo() -> None:
+    """El fallo que costó un despliegue entero: nadie subía el artefacto.
+
+    El script bajaba a la instancia lo que hubiera en S3 —seis horas viejo— y
+    anunciaba «Desplegado». Las pruebas en verde, el commit en `main`, y
+    producción corriendo otra cosa. Se descubrió por casualidad: una ruta nueva
+    contestando 404 en un servidor que decía estar recién desplegado.
+
+    Esta prueba fija el ORDEN, que es lo único que hace que el artefacto sea el
+    de este commit y no el de cualquier otro.
+    """
+    fuente = (RAIZ / "scripts" / "deploy_remote.py").read_text(encoding="utf-8")
+    cuerpo = fuente.split("def main(")[1]
+
+    # Se ancla en las DOS asignaciones, no en las palabras. Buscar «traer» a
+    # secas encontraba mi propio comentario «antes de traer nada», que está
+    # justo encima de la subida: la prueba fallaba con el código correcto.
+    # Es el mismo falso positivo que «uvicorn» conteniendo «uv».
+    subida = cuerpo.find("= empaquetar_y_subir()")
+    descarga = cuerpo.find('traer = "\\n".join(')
+    assert subida != -1, "main() ya no sube el artefacto: se desplegaría código viejo"
+    assert descarga != -1, "cambió cómo se arma el paso de descarga; revisa esta prueba"
+    assert subida < descarga, "se baja el artefacto antes de subirlo: llegaría el anterior"
+
+
+def test_el_artefacto_sale_de_un_commit_y_no_del_disco() -> None:
+    """`git archive` y no `tar` del directorio.
+
+    Con `tar` viajaría «lo que hubiera en el disco»: el `.env` local, la base de
+    datos de pruebas, `node_modules`. Con `git archive` viaja un commit, que
+    además es la única forma de poder responder qué está corriendo allá.
+    """
+    fuente = (RAIZ / "scripts" / "deploy_remote.py").read_text(encoding="utf-8")
+    assert '"git", "archive"' in fuente
+
+
+def test_agotar_la_espera_no_se_confunde_con_un_fallo() -> None:
+    """El comando sigue vivo en la instancia cuando el script deja de mirar.
+
+    «sin terminar» a secas se leía como «falló», y la reacción a eso es volver
+    a desplegar encima de un despliegue en curso.
+    """
+    fuente = (RAIZ / "scripts" / "deploy_remote.py").read_text(encoding="utf-8")
+    assert "SIGUE CORRIENDO" in fuente
+    assert "get-command-invocation" in fuente
