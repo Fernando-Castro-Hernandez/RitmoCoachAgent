@@ -22,6 +22,7 @@
  * exactamente lo que este producto dice no hacer.
  */
 
+import { Logo } from "../components/Logo";
 import { useLocale, useT } from "../i18n";
 
 const RITMO_DEMO = "5:34";
@@ -48,7 +49,10 @@ export function Landing({ onEnter, onCreate }: { onEnter: () => void; onCreate: 
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4">
       <header className="flex items-center justify-between border-b border-ink py-3">
         <span className="label">{t("formCodeLanding")}</span>
-        <span className="text-[0.9375rem] font-semibold tracking-[0.3em]">RITMO</span>
+        <span className="flex items-center gap-2">
+          <Logo className="h-5 w-5 text-proof" />
+          <span className="text-[0.9375rem] font-semibold tracking-[0.3em]">RITMO</span>
+        </span>
         <button
           type="button"
           onClick={() => setLocale(locale === "es" ? "en" : "es")}
@@ -61,6 +65,19 @@ export function Landing({ onEnter, onCreate }: { onEnter: () => void; onCreate: 
       <main className="min-h-0 flex-1">
         {/* El titular es la tesis, no un eslogan. */}
         <section className="border-b border-ink-15 py-10">
+          {/* La marca entra antes que la frase, y entra animándose una sola vez.
+              La animación va en CSS y no en Lottie a propósito: en `assets` hay
+              MP4 del logo pero ningún JSON, así que añadir la librería sería
+              cargar 40 kB para no reproducir nada. Cuando existan los JSON, este
+              es el sitio.
+
+              `motion-reduce` la apaga entera. Una marca que se mueve sin permiso
+              en la primera pantalla es exactamente lo que esa preferencia pide
+              evitar. */}
+          <Logo
+            title="Ritmo"
+            className="mb-6 h-16 w-16 animate-[logo-entra_700ms_cubic-bezier(0.2,0.8,0.2,1)_both] text-proof motion-reduce:animate-none"
+          />
           <h1 className="max-w-[18ch] text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl">
             {t("landingTitle")}
           </h1>

@@ -42,6 +42,13 @@ log = structlog.get_logger(__name__)
 # pague el coste de un historial entero.
 TURNOS_RECORDADOS = 6
 
+# Cuántas carreras registradas viajan en el prompt. Cinco cubren la última
+# semana o dos de cualquier plan; más convierte el prompt en un historial que el
+# coach acaba recitando en vez de conversando — y para las tendencias ya está
+# `get_week_context`, que las calcula en el motor en vez de pedírselas al
+# modelo.
+CARRERAS_RECORDADAS = 5
+
 
 async def build_prompt_for(sesion: AsyncSession, user_id: str, *, today: date | None = None) -> str:
     """El prompt completo de este corredor, en este momento.
@@ -55,6 +62,9 @@ async def build_prompt_for(sesion: AsyncSession, user_id: str, *, today: date | 
     perfil = await _seguro(ProfileRepo(sesion).context(user_id), "perfil")
     veredicto = await _seguro(LogRepo(sesion).current_safety(user_id, hoy), "seguridad")
     turnos = await _seguro(MemoryRepo(sesion).recent(user_id, limit=TURNOS_RECORDADOS), "memoria")
+    corridas = await _seguro(
+        LogRepo(sesion).sessions(user_id, limit=CARRERAS_RECORDADAS), "carreras"
+    )
 
     # La semana sólo se consulta si hay perfil: sin él no hay plan del que
     # hablar, y la herramienta devolvería un error que no aporta nada al prompt.
@@ -69,6 +79,17 @@ async def build_prompt_for(sesion: AsyncSession, user_id: str, *, today: date | 
         week_context=semana,
         safety=veredicto,
         recent_turns=[(t.role, t.text) for t in turnos or []],
+        recent_runs=[
+            {
+                "occurred_on": c.occurred_on,
+                "distance_km": c.distance_km,
+                "duration_sec": c.duration_sec,
+                "pace_sec_per_km": c.pace_sec_per_km,
+                "rpe": c.rpe,
+                "source": c.source,
+            }
+            for c in corridas or []
+        ],
     )
 
 

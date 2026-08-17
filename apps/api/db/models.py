@@ -87,6 +87,10 @@ class AthleteProfileRow(Base):
     user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), primary_key=True)
 
     # ── capa dura · carrusel ─────────────────────────────────────────
+    # Cómo quiere que le llamen. Anulable como el resto: nadie está obligado a
+    # darlo, y un coach que dice «Fernando» a alguien que no dijo su nombre da
+    # más miedo que confianza.
+    name: Mapped[str | None] = mapped_column(String(64))
     level: Mapped[str] = mapped_column(String(16), default="principiante")
     goal_distance: Mapped[str | None] = mapped_column(String(8))
     race_date: Mapped[date | None] = mapped_column(Date)

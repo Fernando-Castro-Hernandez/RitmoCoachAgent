@@ -22,9 +22,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  ApiError,
+  type Cuenta,
   type HardProfile,
   type Sesion,
   type TodaySheet,
+  descargarPlanCsv,
   fetchToday,
   getToken,
   logout,
@@ -36,10 +39,12 @@ import type { Session } from "./components/SessionField";
 import type { Turn } from "./components/Transcript";
 import { useT } from "./i18n";
 import { Auth } from "./screens/Auth";
+import { Calendar } from "./screens/Calendar";
 import { GaitUpload } from "./screens/GaitUpload";
 import { Landing } from "./screens/Landing";
 import { Main } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
+import { Profile } from "./screens/Profile";
 import { Upload } from "./screens/Upload";
 import { VoiceSession } from "./session";
 import {
@@ -49,7 +54,16 @@ import {
   transition,
 } from "./state/voiceMachine";
 
-type Pantalla = "cargando" | "portada" | "auth" | "onboarding" | "hoja" | "captura" | "tecnica";
+type Pantalla =
+  | "cargando"
+  | "portada"
+  | "auth"
+  | "onboarding"
+  | "hoja"
+  | "captura"
+  | "tecnica"
+  | "calendario"
+  | "perfil";
 
 /** Cambia la URL sin recargar. La portada y la aplicación son sitios
  *  distintos y el botón de atrás del navegador tiene que notarlo. */
@@ -133,6 +147,41 @@ export default function App() {
   const [ttfa, setTtfa] = useState<number | null>(null);
   const forzado = useState(estadoForzado)[0];
   const [modoAuth, setModoAuth] = useState<"entrar" | "crear">("entrar");
+  const [cuenta, setCuenta] = useState<Cuenta | null>(null);
+  const [descargando, setDescargando] = useState(false);
+  const [errorCsv, setErrorCsv] = useState("");
+
+  // El nombre sale de la hoja, que ya lee el perfil. Ver `TodaySheet.name`.
+  const nombre = hoja?.name ?? null;
+
+  // La descarga no puede ser un `<a href>`: el endpoint pide el token y un
+  // enlace no lleva cabeceras. Se pide, se convierte en blob y se dispara.
+  const descargar = async () => {
+    setDescargando(true);
+    setErrorCsv("");
+    try {
+      await descargarPlanCsv();
+    } catch (e) {
+      // Un 404 aquí significa que el motor todavía no generó nada, y decirlo
+      // así es más útil que un «error» genérico que no sugiere qué hacer.
+      setErrorCsv(e instanceof ApiError && e.status === 404 ? t("exportEmpty") : t("exportFailed"));
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  /**
+   * Cerrar sesión: suelta el token y vuelve a la portada.
+   *
+   * A la portada y no a un recargar a secas. `logout()` recarga sobre `/app`,
+   * que sin token pinta el formulario de entrada — es decir, al salir aparecía
+   * otra vez la pantalla de entrar, que se lee como «te rechazó» en vez de como
+   * «saliste».
+   */
+  const salirDeLaCuenta = () => {
+    window.history.pushState({}, "", "/");
+    logout();
+  };
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -160,6 +209,7 @@ export default function App() {
         // Es lo que pidió el enunciado y también lo sensato — quien ya entró no
         // quiere leer otra vez qué es esto.
         irA("/app");
+        setCuenta(r.user);
         setPantalla(forzado.pantalla ?? (r.onboarded ? "hoja" : "onboarding"));
       })
       .catch(() => {
@@ -368,6 +418,26 @@ export default function App() {
     return <GaitUpload onClose={() => setPantalla("hoja")} />;
   }
 
+  if (pantalla === "calendario") {
+    return <Calendar onClose={() => setPantalla("hoja")} />;
+  }
+
+  if (pantalla === "perfil") {
+    return (
+      <Profile
+        email={cuenta?.email ?? ""}
+        nombre={nombre}
+        meta={hoja?.goal}
+        hasPlan={hoja?.has_plan ?? false}
+        descargando={descargando}
+        errorCsv={errorCsv}
+        onDescargar={descargar}
+        onSignOut={salirDeLaCuenta}
+        onClose={() => setPantalla("hoja")}
+      />
+    );
+  }
+
   return (
     <Main
         /* Con `?estado=…` se pintan los datos de ejemplo, que es para lo que
@@ -397,11 +467,9 @@ export default function App() {
         }}
       onUpload={() => setPantalla("captura")}
       onGait={() => setPantalla("tecnica")}
+      onCalendar={() => setPantalla("calendario")}
+      onProfile={() => setPantalla("perfil")}
       ttfaMs={ttfa}
-      /* Cerrar sesión. Antes esto borraba el UUID del navegador y con él al
-         corredor entero; ahora sólo suelta el token y los datos siguen en su
-         cuenta, que es lo que la gente espera de un «cerrar sesión». */
-      onStartOver={logout}
       /* El sello MUESTRA sólo mientras las cifras no vengan del motor. En
          cuanto `/api/today` responde con un plan, desaparece — y si el corredor
          aún no tiene plan, se queda, porque entonces sí es un ejemplo. La regla

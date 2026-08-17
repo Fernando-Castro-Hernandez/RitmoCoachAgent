@@ -10,10 +10,18 @@
 import type { ReactNode } from "react";
 
 import { type Locale, type TextKey, useLocale, useT } from "../i18n";
+import { Logo } from "./Logo";
 
 /* ── cabecera del formulario ─────────────────────────────────────── */
 
-export function FormHeader({ specimen = false }: { specimen?: boolean }) {
+export function FormHeader({
+  specimen = false,
+  onProfile,
+}: {
+  specimen?: boolean;
+  /** Si se pasa, la cabecera ofrece la entrada al perfil. */
+  onProfile?: () => void;
+}) {
   const { t, locale } = useT();
   const setLocale = useLocale((s) => s.setLocale);
   const otro: Locale = locale === "es" ? "en" : "es";
@@ -21,10 +29,15 @@ export function FormHeader({ specimen = false }: { specimen?: boolean }) {
   return (
     <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-ink px-4 py-3">
       <span className="label">{t(specimen ? "formCodeDemo" : "formCode")}</span>
-      <h1 className="text-center text-2xl font-semibold tracking-[0.2em] uppercase">
-        {t("brand")}
+
+      {/* El isotipo delante del nombre. La marca entra por la puerta grande y
+          sigue siendo la cabecera de un formulario: mismo peso, misma línea. */}
+      <h1 className="flex items-center justify-center gap-2.5">
+        <Logo className="h-6 w-6 shrink-0 text-proof" />
+        <span className="text-2xl font-semibold tracking-[0.2em] uppercase">{t("brand")}</span>
       </h1>
-      <div className="justify-self-end">
+
+      <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => setLocale(otro)}
@@ -33,6 +46,15 @@ export function FormHeader({ specimen = false }: { specimen?: boolean }) {
         >
           {locale.toUpperCase()}
         </button>
+        {onProfile && (
+          <button
+            type="button"
+            onClick={onProfile}
+            className="label border border-ink px-2 py-1 transition-colors hover:bg-ink hover:text-paper"
+          >
+            {t("profile")}
+          </button>
+        )}
       </div>
     </header>
   );

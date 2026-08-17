@@ -184,6 +184,7 @@ def build_system_prompt(
     week_context: dict[str, Any] | None = None,
     safety: SafetyVerdict | None = None,
     recent_turns: list[tuple[str, str]] | None = None,
+    recent_runs: list[dict[str, Any]] | None = None,
 ) -> str:
     """Arma el prompt completo para este usuario y este turno."""
     # La capa de clarificación tiene dos versiones y se elige, no se acumulan:
@@ -193,6 +194,9 @@ def build_system_prompt(
 
     if profile or week_context:
         partes.append(_datos_del_corredor(profile, week_context))
+
+    if recent_runs:
+        partes.append(_lo_que_ya_corrio(recent_runs))
 
     if recent_turns:
         historial = "\n".join(
@@ -215,6 +219,56 @@ def build_system_prompt(
     return "\n\n".join(p.strip() for p in partes if p.strip())
 
 
+def _lo_que_ya_corrio(runs: list[dict[str, Any]]) -> str:
+    """Las últimas carreras registradas, en una línea cada una.
+
+    **Sin esto, subir una captura del reloj no servía de nada para hablar.** El
+    entrenamiento entraba en la bitácora, el motor lo usaba para progresar, y el
+    coach seguía sin enterarse: preguntaba «¿cómo te fue?» sobre una carrera que
+    el corredor acababa de registrar. Se ve como desmemoria y es peor — es que
+    el dato estaba y nadie se lo pasaba.
+
+    Va en texto y no en JSON a propósito. El resto del contexto es JSON porque
+    son campos que el modelo consulta; esto es una narración corta que tiene que
+    poder citar hablando, y una lista de objetos invita a leerla en voz alta
+    como un informe.
+
+    Las cifras siguen viniendo del motor: se formatean aquí, no se calculan.
+    """
+    lineas = []
+    for r in runs:
+        fecha = r.get("occurred_on")
+        partes = [f"{r['distance_km']:g} km"]
+        if r.get("duration_sec"):
+            partes.append(_reloj(int(r["duration_sec"])))
+        if r.get("pace_sec_per_km"):
+            partes.append(f"a {_reloj(int(r['pace_sec_per_km']))}/km")
+        if r.get("rpe"):
+            partes.append(f"esfuerzo {r['rpe']}/10")
+        linea = f"- {fecha}: " + ", ".join(partes)
+        if r.get("source") == "vision":
+            # Que sepa de dónde salió: si el corredor discute una cifra, el
+            # coach puede decirle que se leyó de su captura y se puede corregir.
+            # Va fuera de la lista de comas: «8.42 km, 47:18, (de una captura)»
+            # se lee como si la procedencia fuera otro dato de la carrera.
+            linea += " — de una captura del reloj"
+        lineas.append(linea)
+
+    return (
+        "Esto es lo que YA corrió y quedó registrado, de lo más reciente a lo "
+        "más antiguo:\n" + "\n".join(lineas) + "\n"
+        "No le preguntes por estas sesiones como si no las supieras. Si te "
+        "habla de una de ellas, ya la tienes."
+    )
+
+
+def _reloj(segundos: int) -> str:
+    """Segundos a «m:ss» o «h:mm:ss». Formatea; no calcula."""
+    h, resto = divmod(segundos, 3600)
+    m, s = divmod(resto, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
 def _datos_del_corredor(profile: dict[str, Any] | None, week_context: dict[str, Any] | None) -> str:
     """El contexto va delimitado y marcado como datos.
 
@@ -229,6 +283,18 @@ def _datos_del_corredor(profile: dict[str, Any] | None, week_context: dict[str, 
             + json.dumps(profile, ensure_ascii=False, indent=2, default=str)
             + "\n</perfil_del_corredor>"
         )
+        # Se dice aparte y no se deja al azar del JSON: el nombre está para
+        # usarse, y de vez en cuando, no en cada frase. Un coach que empieza
+        # todas las respuestas con «Fernando,» suena a carta comercial.
+        #
+        # Y sólo si lo hay. Con el nombre en `null` NO se pregunta por él aquí:
+        # se lo pidió el carrusel, y si lo saltó fue una respuesta.
+        if (nombre := profile.get("name")) and str(nombre).strip():
+            bloques.append(
+                f"El corredor se llama {str(nombre).strip()}. Llámale por su "
+                "nombre cuando venga a cuento —al saludar, al darle una buena "
+                "noticia, al pedirle algo— y no en todas las frases."
+            )
     if week_context:
         bloques.append(
             "<semana_actual>\n"

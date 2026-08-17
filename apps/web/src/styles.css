@@ -55,6 +55,20 @@
   --tracking-label: 0.14em;
 }
 
+/* La entrada de la marca en la portada. Una vez, corta, y sin rebote: el
+   isotipo sube y aparece, como una hoja que se posa. Un logo que salta llama
+   más la atención sobre la animación que sobre la marca. */
+@keyframes logo-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: light;

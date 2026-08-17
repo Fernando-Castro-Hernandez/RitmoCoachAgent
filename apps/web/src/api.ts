@@ -121,6 +121,7 @@ export function me() {
 
 export interface HardProfile {
   goal_distance: string;
+  name?: string | null;
   race_date?: string | null;
   days_per_week?: number | null;
   age?: number | null;
@@ -194,6 +195,45 @@ export function readWatchScreenshot(archivo: File) {
   return pedir<VisionResponse>("/api/vision/workout", { method: "POST", body: form });
 }
 
+// ── bitácora ─────────────────────────────────────────────────────────
+
+export interface SavedSession {
+  occurred_on: string;
+  distance_km: number;
+  duration_sec: number;
+  /** El del MOTOR. Puede no coincidir con el que se leyó de la captura. */
+  pace_sec_per_km: number;
+  pace: string;
+  discrepancy_flag: boolean;
+}
+
+/**
+ * Guarda un entrenamiento confirmado.
+ *
+ * **No manda el ritmo.** Lo calcula el motor con la distancia y el tiempo, y lo
+ * devuelve. Mandarlo desde aquí sería colar una cifra que nadie calculó — que
+ * es exactamente lo que la regla 2 del producto prohíbe.
+ */
+export function guardarSesion(s: {
+  distanceKm: number;
+  durationSec: number;
+  reportedPaceSecPerKm?: number | null;
+  avgHr?: number | null;
+  source?: "vision" | "manual";
+}) {
+  return pedir<{ ok: boolean; session: SavedSession }>("/api/sessions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      distance_km: s.distanceKm,
+      duration_sec: s.durationSec,
+      reported_pace_sec_per_km: s.reportedPaceSecPerKm ?? null,
+      avg_hr: s.avgHr ?? null,
+      source: s.source ?? "vision",
+    }),
+  });
+}
+
 // ── técnica en vídeo ─────────────────────────────────────────────────
 
 export interface GaitFinding {
@@ -250,6 +290,10 @@ export interface TodaySheet {
   /** La meta que eligió el corredor, ya legible. Viaja con plan y sin él: es lo
    *  que la hoja enseña mientras el motor no ha generado nada. */
   goal: string;
+  /** Cómo quiere que le llamen, o `null` si no lo dijo. Viaja con la hoja
+   *  porque el perfil ya se lee aquí: una llamada aparte sería latencia
+   *  regalada por un campo que ya está en la mano. */
+  name: string | null;
   /** Ya traducido al vocabulario de la interfaz: clear / caution / flag. */
   safety: "clear" | "caution" | "flag";
   safety_reason: string;
@@ -281,6 +325,41 @@ export function fetchToday() {
 }
 
 // ── plan ─────────────────────────────────────────────────────────────
+
+export interface CalendarDay {
+  kind: "largo" | "suave" | "tempo" | "intervalos";
+  distanceKm: number;
+  pace: string | null;
+  zone: number;
+  notes: string;
+}
+
+export interface CalendarWeek {
+  index: number;
+  phase: "base" | "construccion" | "pico" | "taper";
+  startDate: string;
+  totalKm: number;
+  /** Siete casillas, lunes a domingo. `null` es descanso, y es parte del plan. */
+  days: (CalendarDay | null)[];
+}
+
+export interface PlanCalendar {
+  goal: string;
+  today: string;
+  safety: "clear" | "caution" | "flag";
+  totalWeeks: number;
+  weeks: CalendarWeek[];
+}
+
+export async function fetchCalendar(): Promise<PlanCalendar | null> {
+  try {
+    return await pedir<PlanCalendar>("/api/plan/calendar");
+  } catch (e) {
+    // 404 no es un fallo: es que el motor todavía no generó nada.
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
 
 /**
  * La descarga del CSV no puede ser un `<a href>`: necesita la cabecera del

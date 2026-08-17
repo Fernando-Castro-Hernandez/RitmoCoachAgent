@@ -13,9 +13,7 @@
 
 import { useState } from "react";
 
-import { ApiError, descargarPlanCsv } from "../api";
 import { SafetyStop } from "../components/SafetyStop";
-import { TelegramLink } from "../components/TelegramLink";
 import {
   ContextStrip,
   FormHeader,
@@ -54,9 +52,10 @@ interface Props {
   onAcknowledge: () => void;
   onUpload: () => void;
   onGait: () => void;
+  onCalendar: () => void;
+  onProfile: () => void;
   /** Latencia real del último turno, en ms (ADR 0012). */
   ttfaMs?: number | null;
-  onStartOver?: () => void;
   /** El plan mostrado es de ejemplo y no lo generó el motor para este corredor. */
   specimen?: boolean;
 }
@@ -77,31 +76,14 @@ export function Main({
   onAcknowledge,
   onUpload,
   onGait,
+  onCalendar,
+  onProfile,
   ttfaMs,
-  onStartOver,
   specimen = false,
 }: Props) {
   const { t } = useT();
   const [texto, setTexto] = useState("");
   const [escribiendo, setEscribiendo] = useState(false);
-  const [descargando, setDescargando] = useState(false);
-  const [errorCsv, setErrorCsv] = useState("");
-
-  // La descarga no puede ser un `<a href>`: el endpoint pide el token y un
-  // enlace no lleva cabeceras. Se pide, se convierte en blob y se dispara.
-  const descargar = async () => {
-    setDescargando(true);
-    setErrorCsv("");
-    try {
-      await descargarPlanCsv();
-    } catch (e) {
-      // Un 404 aquí significa que el motor todavía no generó nada, y decirlo
-      // así es más útil que un «error» genérico que no sugiere qué hacer.
-      setErrorCsv(e instanceof ApiError && e.status === 404 ? t("exportEmpty") : t("exportFailed"));
-    } finally {
-      setDescargando(false);
-    }
-  };
 
   // El campo de texto se impone solo cuando la voz no puede: sin micrófono no
   // hay nada que ofrecer detrás de un botón.
@@ -117,7 +99,7 @@ export function Main({
 
   return (
     <div className="mx-auto flex h-dvh max-w-6xl flex-col">
-      <FormHeader specimen={specimen} />
+      <FormHeader specimen={specimen} onProfile={onProfile} />
 
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:divide-x lg:divide-ink-15">
         {/* Columna izquierda en escritorio: la estructura. */}
@@ -170,7 +152,7 @@ export function Main({
               onClick={onUpload}
               className="label px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
             >
-              {t("uploadTitle")}
+              {t("uploadCard")}
             </button>
             <button
               type="button"
@@ -181,32 +163,18 @@ export function Main({
             </button>
           </div>
 
-          {/* La descarga sólo aparece cuando hay algo que descargar. Un botón
-              que responde «no hay plan» es una promesa incumplida, y responde a
-              lo que dijo la entrevista de la Fase 2: el corredor experimentado
-              ya lleva su hoja de cálculo, y no se le pide que la abandone. */}
-          {hasPlan && !specimen && (
-            <div className="border-b border-ink-15">
-              <button
-                type="button"
-                onClick={descargar}
-                disabled={descargando}
-                className="label w-full px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-70"
-              >
-                {t("exportCsv")}
-              </button>
-              {errorCsv && (
-                <p role="alert" className="px-4 pb-3 text-[0.8125rem] text-ink-70">
-                  {errorCsv}
-                </p>
-              )}
-            </div>
+          {/* Ver el plan entero. Es la otra pregunta del corredor —«¿hacia
+              dónde va esto?»— y no cabía en la columna del día. */}
+          {hasPlan && (
+            <button
+              type="button"
+              onClick={onCalendar}
+              className="label w-full border-b border-ink-15 px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
+            >
+              {t("calendarOpen")}
+            </button>
           )}
 
-          {/* Vincular Telegram vive en la hoja y no en unos ajustes escondidos:
-              es el canal por el que el coach busca al corredor cuando algo va
-              mal, y un canal que nadie encuentra no avisa a nadie. */}
-          <TelegramLink />
         </div>
 
         {/* Columna derecha en escritorio: la conversación. */}
@@ -247,17 +215,11 @@ export function Main({
                 nada se le encima. Antes «empezar de cero» iba en posición fija
                 y aterrizaba sobre la etiqueta del orbe. */}
             <div className="grid grid-cols-[5rem_1fr_5rem] items-center gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              {/* Sólo la marca de registro. «Cerrar sesión» estaba aquí, a un
+                  centímetro del orbe: el sitio exacto donde aterriza el pulgar
+                  al querer hablar. Ahora vive en el perfil. */}
               <div className="flex items-center gap-2">
                 <RegistrationMark className="shrink-0" />
-                {onStartOver && (
-                  <button
-                    type="button"
-                    onClick={onStartOver}
-                    className="label text-left leading-tight text-ink-70 transition-colors hover:text-ink"
-                  >
-                    {t("startOver")}
-                  </button>
-                )}
               </div>
 
               <VoiceOrb state={voice} level={level} onClick={onOrbClick} />

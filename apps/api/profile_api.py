@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.auth import UsuarioActual
-from apps.api.db.repo import ProfileRepo, StateRepo
+from apps.api.db.repo import LogRepo, ProfileRepo, StateRepo
 from apps.api.db.session import get_session
 from apps.api.onboarding import (
     HARD_FIELDS,
@@ -52,6 +52,69 @@ CSV_COLUMNS = [
 _DIAS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
 
 
+class ConfirmedSession(BaseModel):
+    """Lo que el corredor confirmó de una captura, ya revisado por él.
+
+    **No trae ritmo.** No es un olvido: el ritmo lo calcula el motor a partir de
+    la distancia y el tiempo, y aceptarlo del cliente sería dejar entrar una
+    cifra que nadie calculó. Lo que sí viaja es `reported_pace_sec_per_km`, el
+    que el modelo de visión creyó leer, y sólo para que el motor pueda marcar la
+    discrepancia si no cuadra (ADR 0014).
+    """
+
+    distance_km: float = Field(..., gt=0, le=200)
+    duration_sec: int = Field(..., gt=0, le=24 * 3600)
+    occurred_on: date | None = None
+    rpe: int | None = Field(None, ge=1, le=10)
+    avg_hr: int | None = Field(None, ge=30, le=230)
+    notes: str = ""
+    reported_pace_sec_per_km: int | None = None
+    source: str = Field("vision", pattern="^(vision|manual)$")
+
+
+@router.post("/sessions")
+async def log_confirmed_session(
+    cuerpo: ConfirmedSession, sesion: Sesion, usuario: UsuarioActual
+) -> dict[str, Any]:
+    """Guarda un entrenamiento que el corredor acaba de confirmar.
+
+    **Este endpoint faltaba, y su ausencia hacía inútil media ruta de visión.**
+    La pantalla leía la captura, se la enseñaba al corredor, él la confirmaba…
+    y el «Guardar» pintaba una línea en la transcripción y nada más. Nada
+    llegaba a la bitácora: ni el motor progresaba con ello, ni el coach se
+    enteraba, y al turno siguiente preguntaba qué tal había ido la carrera que
+    el corredor acababa de registrar.
+
+    La ruta de voz sí escribía, por la herramienta `log_run`. Así que el mismo
+    entrenamiento contado hablando se guardaba y subido en captura se perdía.
+    """
+    repo = LogRepo(sesion)
+    fila = await repo.add_session(
+        usuario.id,
+        occurred_on=cuerpo.occurred_on or date.today(),
+        distance_km=cuerpo.distance_km,
+        duration_sec=cuerpo.duration_sec,
+        rpe=cuerpo.rpe,
+        notes=cuerpo.notes,
+        source=cuerpo.source,
+        reported_pace_sec_per_km=cuerpo.reported_pace_sec_per_km,
+    )
+    await sesion.commit()
+
+    return {
+        "ok": True,
+        "session": {
+            "occurred_on": fila.occurred_on.isoformat(),
+            "distance_km": fila.distance_km,
+            "duration_sec": fila.duration_sec,
+            # El ritmo que devuelve es el del MOTOR, no el que mandaron.
+            "pace_sec_per_km": fila.pace_sec_per_km,
+            "pace": format_pace(fila.pace_sec_per_km),
+            "discrepancy_flag": fila.discrepancy_flag,
+        },
+    }
+
+
 class HardProfile(BaseModel):
     """Lo que captura el carrusel. Todo opcional menos la meta.
 
@@ -61,6 +124,9 @@ class HardProfile(BaseModel):
     """
 
     goal_distance: str = Field(..., pattern="^(5k|10k|21k|42k)$")
+    # Se limpia de espacios y se topa a 64: es lo que cabe en la columna, y un
+    # nombre de doscientos caracteres no es un nombre, es una prueba de carga.
+    name: str | None = Field(None, max_length=64)
     race_date: date | None = None
     days_per_week: int | None = Field(None, ge=1, le=7)
     age: int | None = Field(None, ge=10, le=100)
@@ -79,6 +145,14 @@ async def save_hard_profile(
     """Guarda la capa dura y dice qué le queda por preguntar a la voz."""
     user_id = usuario.id
     campos = {k: v for k, v in cuerpo.model_dump().items() if v is not None}
+    # «  » no es un nombre. Sin esto el coach saludaría a un espacio en blanco,
+    # y peor: `profile["name"]` sería verdadero y el prompt diría «el corredor
+    # se llama    ».
+    if isinstance(campos.get("name"), str):
+        if limpio := campos["name"].strip():
+            campos["name"] = limpio
+        else:
+            del campos["name"]
     repo = ProfileRepo(sesion)
     await repo.save(user_id, **campos)
     await sesion.commit()
@@ -106,6 +180,80 @@ async def get_profile(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
         "hard_fields": list(HARD_FIELDS),
         "next_voice_question": next_question(contexto),
     }
+
+
+@router.get("/plan/calendar")
+async def plan_calendar(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
+    """El plan entero, semana a semana, para pintarlo en rejilla.
+
+    Devuelve **lo mismo que el CSV**, con la misma fecha calculada de la misma
+    forma. Es a propósito: si el calendario dedujera los días por su cuenta,
+    tarde o temprano enseñaría un martes donde el CSV dice miércoles, y quien
+    lo notara no sabría a cuál de los dos creerle.
+
+    Aquí sí viaja todo el plan, incluso en rojo, y no contradice a `/api/today`
+    —que en rojo se calla la sesión de hoy. Son dos preguntas distintas: «¿qué
+    hago hoy?» es una prescripción y con bandera roja no se emite; «¿cómo es mi
+    plan?» es el documento que el corredor ya tiene, y esconderle el calendario
+    entero no le protege de nada, sólo le oculta lo que ya descargó en CSV.
+    """
+    user_id = usuario.id
+    plan = await StateRepo(sesion).get(user_id)
+    if plan is None:
+        raise HTTPException(404, "no hay plan todavía")
+
+    hoy = date.today()
+    veredicto = await LogRepo(sesion).current_safety(user_id, hoy)
+
+    semanas = []
+    for semana in plan.weeks:
+        dias: list[dict[str, Any] | None] = [None] * 7
+        for s in sorted(semana.sessions, key=lambda x: x.day_of_week):
+            dias[s.day_of_week] = {
+                "kind": s.kind,
+                "distanceKm": s.distance_km,
+                "pace": (
+                    None
+                    if s.pace is None
+                    else f"{format_pace(s.pace.min_sec_per_km)}–"
+                    f"{format_pace(s.pace.max_sec_per_km)}"
+                ),
+                "zone": s.zone,
+                "notes": s.notes,
+            }
+        semanas.append(
+            {
+                "index": semana.index,
+                "phase": semana.phase,
+                "startDate": semana.start_date.isoformat(),
+                "totalKm": semana.load.total_km,
+                # Siete casillas SIEMPRE, de lunes a domingo, con `null` donde
+                # se descansa. Mandar sólo las sesiones obligaría a la rejilla a
+                # reconstruir los huecos, y el descanso es parte del plan: se
+                # dibuja, no se deja en blanco por omisión.
+                "days": dias,
+            }
+        )
+
+    return {
+        "goal": _nombre_de_meta(
+            (await ProfileRepo(sesion).context(user_id) or {}).get("goal_distance")
+        ),
+        "today": hoy.isoformat(),
+        "safety": {"green": "clear", "amber": "caution", "red": "flag"}.get(
+            veredicto.level.value, "clear"
+        ),
+        "totalWeeks": len(plan.weeks),
+        "weeks": semanas,
+    }
+
+
+def _nombre_de_meta(distancia: str | None) -> str:
+    if not distancia:
+        return ""
+    return {"5k": "5K", "10k": "10K", "21k": "Medio maratón", "42k": "Maratón"}.get(
+        distancia, distancia.upper()
+    )
 
 
 @router.get("/plan/export.csv")

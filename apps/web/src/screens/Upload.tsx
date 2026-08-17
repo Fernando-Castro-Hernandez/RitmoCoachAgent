@@ -26,6 +26,7 @@ import {
   type VisionResponse,
   formatDuration,
   formatPace,
+  guardarSesion,
   parseDuration,
   readWatchScreenshot,
 } from "../api";
@@ -82,6 +83,7 @@ export function Upload({ onClose, onSave }: Props) {
   const [tiempo, setTiempo] = useState("");
   const [pulso, setPulso] = useState("");
   const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
   const archivo = useRef<HTMLInputElement>(null);
 
   const cargarPropuesta = (p: ProposedSession) => {
@@ -120,6 +122,44 @@ export function Upload({ onClose, onSave }: Props) {
       : null;
 
   const guardable = ritmo !== null && ritmo >= 120 && ritmo <= 1200;
+
+  /**
+   * Guardar de verdad.
+   *
+   * **Antes esto sólo pintaba una línea en la transcripción.** El corredor veía
+   * su entrenamiento aparecer, creía haberlo registrado, y no había llegado a
+   * ninguna parte: ni el motor progresaba con él, ni el coach se enteraba. El
+   * mismo entrenamiento contado hablando sí se guardaba, así que el producto
+   * tenía dos memorias y una era falsa.
+   *
+   * Se cierra sólo si el servidor confirmó. Cerrar antes es lo que hacía que un
+   * fallo de red se viera exactamente igual que un guardado correcto.
+   */
+  const guardar = async () => {
+    if (ritmo === null || segNum === null) return;
+    setGuardando(true);
+    setError("");
+    try {
+      const { session } = await guardarSesion({
+        distanceKm: kmNum,
+        durationSec: segNum,
+        // El que el modelo creyó leer, para que el motor pueda marcar la
+        // discrepancia. NO es el que se guarda.
+        reportedPaceSecPerKm: respuesta?.extraction?.avg_pace_sec_per_km ?? null,
+        avgHr: pulso.trim() ? Number(pulso) : null,
+        source: fase === "manual" ? "manual" : "vision",
+      });
+      onSave({
+        distanceKm: session.distance_km,
+        durationSec: session.duration_sec,
+        // El ritmo que se enseña es el que devolvió el motor, no el de aquí.
+        paceSecPerKm: session.pace_sec_per_km,
+      });
+    } catch {
+      setError(t("saveFailed"));
+      setGuardando(false);
+    }
+  };
   const dudoso = respuesta?.extraction?.confidence !== "high";
   const ilegibles = respuesta?.extraction?.unreadable_fields ?? [];
 
@@ -278,14 +318,11 @@ export function Upload({ onClose, onSave }: Props) {
         <footer className="border-t border-ink pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
-            disabled={!guardable}
-            onClick={() => {
-              if (ritmo === null) return;
-              onSave({ distanceKm: kmNum, durationSec: segNum!, paceSecPerKm: ritmo });
-            }}
+            disabled={!guardable || guardando}
+            onClick={guardar}
             className="min-h-14 w-full bg-proof text-[1.0625rem] font-medium text-paper transition-colors hover:bg-proof-deep disabled:bg-ink-08 disabled:text-ink-70"
           >
-            {t("save")}
+            {guardando ? t("saving") : t("save")}
           </button>
         </footer>
       )}

@@ -171,6 +171,10 @@ async def sembrar(reset: bool) -> int:
         # ── el perfil, completo: la demo no arranca en el carrusel ──
         await ProfileRepo(db).save(
             user_id,
+            # Con nombre: la cuenta de demostración existe para enseñar el
+            # producto entero, y un coach que te llama por tu nombre sólo se ve
+            # si hay nombre que usar.
+            name="Fernando",
             level="intermedio",
             goal_distance="42k",
             race_date=carrera,

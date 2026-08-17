@@ -114,6 +114,10 @@ const es = {
   onbFootnote: "Sólo la carrera es obligatoria. Lo demás lo platicamos hablando.",
 
   // Captura del reloj
+  // El botón de la hoja y el título del modal dicen cosas distintas a
+  // propósito: en la hoja hay que decir QUÉ se sube y de dónde sale, porque es
+  // lo que decide si alguien lo pulsa; dentro ya se sabe y sobra la lista.
+  uploadCard: "Sube tu actividad (Strava / Garmin / Runna)",
   uploadTitle: "Subir captura del reloj",
   uploadCta: "Elegir imagen",
   uploadReading: "Leyendo…",
@@ -131,6 +135,41 @@ const es = {
   manualWhy: "Ahorita no puedo leer la imagen. Escribe los números y seguimos igual.",
   unreadable: "No pude leer: {fields}",
   checkThis: "Revisa este dato",
+
+  // Onboarding: nombre
+  onbName: "¿Cómo te llamas?",
+  nameLabel: "Tu nombre",
+  nameWhy: "Para hablarte por tu nombre. Si prefieres no darlo, sigue sin él.",
+
+  // Bitácora
+  saving: "Guardando…",
+  saveFailed: "No pude guardarlo. Vuelve a intentarlo.",
+
+  // Calendario
+  calendarTitle: "Calendario del plan",
+  calendarOpen: "Ver calendario",
+  calendarEmpty: "Tu plan aparece aquí en cuanto el motor lo genere.",
+  calendarToday: "Hoy",
+  calendarWeek: "S{n}",
+  calendarTotal: "{km} km",
+  calendarRest: "Descanso",
+  calendarLegend: "Cada casilla es un día. El descanso también es plan.",
+  dayMon: "Lun",
+  dayTue: "Mar",
+  dayWed: "Mié",
+  dayThu: "Jue",
+  dayFri: "Vie",
+  daySat: "Sáb",
+  daySun: "Dom",
+
+  // Perfil
+  profile: "Perfil",
+  profileTitle: "Tu cuenta",
+  profileName: "Nombre",
+  profileEmail: "Correo",
+  profileGoal: "Meta",
+  profileNoName: "Sin nombre",
+  signOut: "Cerrar sesión",
 
   // Descarga del plan
   exportCsv: "Descargar plan (CSV)",
@@ -324,6 +363,7 @@ const en: Dict = {
   step: "Step {n} of {total}",
   onbFootnote: "Only the race is required. The rest we'll talk through.",
 
+  uploadCard: "Upload your activity (Strava / Garmin / Runna)",
   uploadTitle: "Upload a watch screenshot",
   uploadCta: "Choose image",
   uploadReading: "Reading…",
@@ -341,6 +381,37 @@ const en: Dict = {
   manualWhy: "I can't read the image right now. Type the numbers and we carry on.",
   unreadable: "Couldn't read: {fields}",
   checkThis: "Check this one",
+
+  onbName: "What's your name?",
+  nameLabel: "Your name",
+  nameWhy: "So I can call you by it. If you'd rather not say, carry on without it.",
+
+  saving: "Saving…",
+  saveFailed: "I couldn't save it. Try again.",
+
+  calendarTitle: "Plan calendar",
+  calendarOpen: "View calendar",
+  calendarEmpty: "Your plan shows up here as soon as the engine builds it.",
+  calendarToday: "Today",
+  calendarWeek: "W{n}",
+  calendarTotal: "{km} km",
+  calendarRest: "Rest",
+  calendarLegend: "Each cell is a day. Rest is part of the plan too.",
+  dayMon: "Mon",
+  dayTue: "Tue",
+  dayWed: "Wed",
+  dayThu: "Thu",
+  dayFri: "Fri",
+  daySat: "Sat",
+  daySun: "Sun",
+
+  profile: "Profile",
+  profileTitle: "Your account",
+  profileName: "Name",
+  profileEmail: "Email",
+  profileGoal: "Goal",
+  profileNoName: "No name",
+  signOut: "Sign out",
 
   exportCsv: "Download plan (CSV)",
   exportEmpty: "There is no plan to download yet.",

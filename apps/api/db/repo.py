@@ -107,6 +107,7 @@ class ProfileRepo:
         if fila is None:
             return None
         return {
+            "name": fila.name,
             "weekly_volume_km": fila.weekly_volume_km,
             "longest_run_km": fila.longest_run_km,
             "days_per_week": fila.days_per_week,

@@ -21,11 +21,16 @@ import { RegistrationMark } from "../components/Sheet";
 import { type HardProfile, parseDuration } from "../api";
 import { type TextKey, useT } from "../i18n";
 
-type Paso = "goal" | "days" | "about" | "ref" | "injury" | "when";
+type Paso = "name" | "goal" | "days" | "about" | "ref" | "injury" | "when";
 
-const PASOS: Paso[] = ["goal", "days", "about", "ref", "injury", "when"];
+// El nombre abre el carrusel, y es el único dato que la conversación NO puede
+// recoger con gracia: preguntar «¿cómo te llamas?» a la tercera frase suena a
+// formulario disfrazado de charla. Aquí cuesta un renglón y cambia el tono de
+// todo lo que viene después.
+const PASOS: Paso[] = ["name", "goal", "days", "about", "ref", "injury", "when"];
 
 const TITULO: Record<Paso, TextKey> = {
+  name: "onbName",
   goal: "onbGoal",
   days: "onbDays",
   about: "onbAbout",
@@ -86,6 +91,7 @@ export function plantillaMasCercana(km: string): string {
 }
 
 interface Borrador {
+  name?: string;
   goal_distance?: string;
   /** Los km que escribió si eligió «otra distancia». Se usa para elegir la
    *  plantilla más cercana, no para inventar una nueva. */
@@ -187,6 +193,9 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
     const seg = d.ref_time ? parseDuration(d.ref_time) : null;
     return {
       goal_distance: d.goal_distance!,
+      // Sin recortar aquí Y en el backend: el de aquí evita mandar basura, el
+      // de allá evita confiar en que el cliente la recortó.
+      name: d.name?.trim() || null,
       race_date: d.race_date || null,
       days_per_week: d.days_per_week ?? null,
       age: d.age ? Number(d.age) : null,
@@ -235,6 +244,22 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
         </h2>
 
         <div className="mt-7 space-y-3">
+          {paso === "name" && (
+            <div className="space-y-4">
+              <Entrada
+                label={t("nameLabel")}
+                value={d.name ?? ""}
+                autoFocus
+                autoComplete="given-name"
+                maxLength={64}
+                onChange={(e) => setD({ ...d, name: e.target.value })}
+              />
+              {/* Se puede seguir sin darlo, y se dice. Un campo que parece
+                  obligatorio y no lo es hace que la gente invente algo. */}
+              <p className="text-[0.875rem] text-ink-70">{t("nameWhy")}</p>
+            </div>
+          )}
+
           {paso === "goal" && (
             <>
               {METAS.map((m) => (

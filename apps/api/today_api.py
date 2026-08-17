@@ -65,6 +65,10 @@ async def hoja_de_hoy(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
         # ejemplo. Un corredor nuevo tiene que verse a sí mismo desde el primer
         # segundo, no a otro.
         "goal": _nombre_de_carrera((perfil or {}).get("goal_distance") or ""),
+        # Viaja con la hoja y no en una petición aparte: el panel de perfil lo
+        # necesita, y ya se está leyendo el perfil aquí. Una llamada más para un
+        # campo que ya está en la mano es latencia regalada.
+        "name": (perfil or {}).get("name"),
         "safety": _SEMAFORO.get(veredicto.level.value, "clear"),
         "safety_reason": veredicto.reason,
         "referral": veredicto.referral_message,
