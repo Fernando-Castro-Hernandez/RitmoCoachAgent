@@ -80,6 +80,14 @@ OBSERVABLE_A_CATEGORIA: dict[str, str] = {
     "cadence_impression": "cadencia",
 }
 
+# Lo que el modelo puede decir, sacado del propio esquema en vez de repetido a
+# mano. Escribir la lista dos veces significa que añadir un observable al
+# esquema lo deja silenciosamente descartado aquí — un fallo que no rompe nada,
+# sólo hace que un hallazgo desaparezca sin dejar rastro.
+OBSERVABLES_VALIDOS: frozenset[str] = frozenset(
+    GAIT_SCHEMA["properties"]["findings"]["items"]["properties"]["observable"]["enum"]
+)
+
 # El orden en que se atiende lo encontrado. Lo evidente antes que lo dudoso.
 _PRIORIDAD = {"flag": 0, "watch": 1, "ok": 2}
 
@@ -109,7 +117,7 @@ async def analyze_gait(client: VisionClient, frames: list[tuple[bytes, str]]) ->
         # Un observable fuera del enum es un modelo saliéndose del esquema. Se
         # descarta en vez de propagarse: nada aguas abajo sabría qué hacer con
         # él, y el mapa de categorías le devolvería una señal equivocada.
-        if observable not in OBSERVABLE_A_CATEGORIA and observable != "hip_drop":
+        if observable not in OBSERVABLES_VALIDOS:
             continue
         if evaluacion not in _PRIORIDAD:
             continue

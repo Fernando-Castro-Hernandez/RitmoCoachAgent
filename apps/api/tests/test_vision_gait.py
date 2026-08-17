@@ -34,6 +34,8 @@ from apps.api.vision.client import VisionError
 from apps.api.vision.gait import (
     GAIT_PROMPT,
     MAX_FRAMES,
+    OBSERVABLE_A_CATEGORIA,
+    OBSERVABLES_VALIDOS,
     NoFramesError,
     analyze_gait,
     suggest_cue,
@@ -127,6 +129,13 @@ def test_el_prompt_prohibe_medir_y_diagnosticar() -> None:
     assert "grados" in texto
     assert "lesiones" in texto
     assert "instrucciones" in texto, "falta la defensa contra inyección por imagen"
+
+
+def test_lo_que_el_modelo_puede_decir_sale_del_esquema() -> None:
+    """Sin esto, añadir un observable al esquema lo dejaría descartado en
+    silencio: el hallazgo desaparecería sin romper nada y sin dejar rastro."""
+    assert set(OBSERVABLE_A_CATEGORIA) <= OBSERVABLES_VALIDOS
+    assert "hip_drop" in OBSERVABLES_VALIDOS, "se observa aunque no tenga señal"
 
 
 def test_el_esquema_no_tiene_donde_poner_un_consejo() -> None:
