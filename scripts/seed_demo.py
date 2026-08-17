@@ -53,6 +53,43 @@ SEMANA_ACTUAL = 7
 SEMANAS_TOTALES = 16
 
 
+def _inicio_con_sesion_hoy(inicio: date, hoy: date) -> date:
+    """Desplaza el arranque del plan para que hoy toque entrenar.
+
+    Devuelve el primer desplazamiento de 0 a 6 días que lo consigue, o el
+    original si ninguno lo hace — un plan sin sesión ningún día de la semana no
+    existe, pero no se cuelga por ello.
+    """
+    from coach_domain.plans import build_plan
+    from coach_domain.types import AthleteProfile, Level, RaceDistance
+
+    from apps.api.automation import session_on
+
+    tanteo = AthleteProfile(
+        user_id="tanteo",
+        level=Level.INTERMEDIO,
+        weekly_volume_km=42.0,
+        longest_run_km=24.0,
+        days_per_week=6,
+        reference_distance_km=10.0,
+        reference_time_sec=2820,
+    )
+    for dias in range(7):
+        candidato = inicio - timedelta(days=dias)
+        plan = build_plan(
+            tanteo, RaceDistance.K42, candidato + timedelta(weeks=SEMANAS_TOTALES), candidato
+        )
+        if session_on(plan, hoy) is not None:
+            return candidato
+    return inicio
+
+
+def _sesion_de_hoy(plan: object, hoy: date) -> object:
+    from apps.api.automation import session_on
+
+    return session_on(plan, hoy)  # type: ignore[arg-type]
+
+
 async def sembrar(reset: bool) -> int:
     from coach_domain.plans import build_plan
     from coach_domain.types import AthleteProfile, Level, RaceDistance
@@ -75,6 +112,20 @@ async def sembrar(reset: bool) -> int:
     # El plan arrancó hace seis semanas para caer en la séptima.
     inicio = hoy - timedelta(weeks=SEMANA_ACTUAL - 1)
     inicio -= timedelta(days=inicio.weekday())
+
+    # Y se busca un arranque con el que HOY caiga en un día de entrenamiento.
+    #
+    # Ojo con lo que hace y lo que no. Mover el arranque **no cambia qué días de
+    # la semana tienen sesión**: `session_on` compara contra el día absoluto, así
+    # que el martes es martes se empiece cuando se empiece. Lo que sí cambia es
+    # **en qué semana del plan cae hoy**, y las semanas no son iguales entre sí
+    # —una de descarga entrena menos días—, así que desplazar sirve para casi
+    # todos los días. Escribí este comentario al revés la primera vez y sólo
+    # probándolo día a día se vio.
+    #
+    # Importa porque el ámbar sólo se aprecia con una sesión delante, recortada
+    # y con su porqué. Un «hoy descansas» es correcto y no enseña nada.
+    inicio = _inicio_con_sesion_hoy(inicio, hoy)
     carrera = inicio + timedelta(weeks=SEMANAS_TOTALES)
 
     async with get_sessionmaker()() as db:
@@ -123,7 +174,7 @@ async def sembrar(reset: bool) -> int:
             level="intermedio",
             goal_distance="42k",
             race_date=carrera,
-            days_per_week=5,
+            days_per_week=6,
             age=27,
             weight_kg=72.0,
             height_cm=178.0,
@@ -144,7 +195,7 @@ async def sembrar(reset: bool) -> int:
             level=Level.INTERMEDIO,
             weekly_volume_km=42.0,
             longest_run_km=24.0,
-            days_per_week=5,
+            days_per_week=6,
             reference_distance_km=10.0,
             reference_time_sec=2820,
         )
@@ -205,6 +256,20 @@ async def sembrar(reset: bool) -> int:
     print(f"  carrera       {carrera.isoformat()}")
     print(f"  bitácora      {sesiones} sesiones registradas")
     print(f"  puerta        {veredicto.level.value.upper()} — {veredicto.reason}")
+
+    hoy_toca = _sesion_de_hoy(plan, hoy)
+    if hoy_toca is None:
+        # El lunes es descanso en TODAS las semanas de esta plantilla, y no hay
+        # desplazamiento que lo arregle. Se dice en voz alta en vez de dejar que
+        # alguien grabe el vídeo y descubra la pantalla de descanso al montarlo.
+        print(
+            "\n  AVISO: hoy es día de DESCANSO en el plan, así que la hoja NO\n"
+            "  enseñará la sesión recortada en ámbar. Es correcto, pero para el\n"
+            "  vídeo conviene grabar otro día: el lunes descansa siempre."
+        )
+    else:
+        print(f"  hoy toca      {hoy_toca.kind}, {hoy_toca.distance_km:g} km antes del recorte")
+
     print(
         "\nPara la demo: reportar la misma molestia dos días más la escala a "
         "ROJO en vivo,\ny la hoja se anula delante de quien esté mirando."
