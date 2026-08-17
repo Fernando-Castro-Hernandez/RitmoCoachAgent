@@ -343,7 +343,11 @@ def main() -> int:
     codigo, salida = ssm(instancia, "bash /opt/ritmo/infra/deploy.sh 2>&1", minutos=25)
     print(salida)
     if codigo == 0:
-        print(f"\nDesplegado: https://{dominio}")
+        # El commit va en la línea final a propósito: es la respuesta a «¿qué
+        # está corriendo allá?», y hasta ahora no la había. El despliegue que
+        # reinstaló código de hace seis horas también terminó diciendo
+        # «Desplegado», sin nada que permitiera notarlo.
+        print(f"\nDesplegado {commit}: https://{dominio}")
     return codigo
 
 
