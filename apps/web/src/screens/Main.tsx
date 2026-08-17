@@ -14,6 +14,7 @@
 import { useState } from "react";
 
 import { SafetyStop } from "../components/SafetyStop";
+import { TelegramLink } from "../components/TelegramLink";
 import {
   ContextStrip,
   FormHeader,
@@ -130,6 +131,11 @@ export function Main({
               {t("uploadTitle")}
             </button>
           </div>
+
+          {/* Vincular Telegram vive en la hoja y no en unos ajustes escondidos:
+              es el canal por el que el coach busca al corredor cuando algo va
+              mal, y un canal que nadie encuentra no avisa a nadie. */}
+          <TelegramLink />
         </div>
 
         {/* Columna derecha en escritorio: la conversación. */}

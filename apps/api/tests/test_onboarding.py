@@ -19,7 +19,8 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from apps.api.db.models import Base
+from apps.api.auth import usuario_actual
+from apps.api.db.models import Base, UserRow
 from apps.api.db.session import get_session
 from apps.api.main import app
 from apps.api.onboarding import (
@@ -143,11 +144,23 @@ async def sesion_factory() -> AsyncIterator[Any]:
 
 @pytest.fixture
 def cliente(sesion_factory: Any) -> Iterator[TestClient]:
+    """Cliente ya autenticado como «u1».
+
+    Se sustituye la dependencia de identidad en vez de registrar una cuenta de
+    verdad, por dos razones: el `user_id` queda fijo y legible en el resto del
+    archivo, y estas pruebas son de perfil, plan y visión — no de autenticación.
+    Que la puerta cierre se prueba una por una en `test_auth.py`, que es donde
+    tiene que doler si alguien la deja abierta.
+    """
+
     async def _sesion() -> AsyncIterator[Any]:
         async with sesion_factory() as s:
             yield s
 
     app.dependency_overrides[get_session] = _sesion
+    app.dependency_overrides[usuario_actual] = lambda: UserRow(
+        id="u1", email="u1@ritmo.test", hashed_password=""
+    )
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -155,7 +168,7 @@ def cliente(sesion_factory: Any) -> Iterator[TestClient]:
 
 def test_el_carrusel_guarda_y_dice_que_falta_por_voz(cliente: TestClient) -> None:
     r = cliente.post(
-        "/api/profile/u1",
+        "/api/profile",
         json={"goal_distance": "21k", "age": 28, "days_per_week": 4},
     )
     assert r.status_code == 200
@@ -167,22 +180,22 @@ def test_el_carrusel_guarda_y_dice_que_falta_por_voz(cliente: TestClient) -> Non
 
 
 def test_el_carrusel_rechaza_una_meta_que_no_preparamos(cliente: TestClient) -> None:
-    r = cliente.post("/api/profile/u1", json={"goal_distance": "100k"})
+    r = cliente.post("/api/profile", json={"goal_distance": "100k"})
     assert r.status_code == 422
 
 
 def test_el_carrusel_rechaza_un_peso_imposible(cliente: TestClient) -> None:
-    r = cliente.post("/api/profile/u1", json={"goal_distance": "5k", "weight_kg": 5})
+    r = cliente.post("/api/profile", json={"goal_distance": "5k", "weight_kg": 5})
     assert r.status_code == 422
 
 
 def test_consultar_un_perfil_que_no_existe(cliente: TestClient) -> None:
-    assert cliente.get("/api/profile/fantasma").status_code == 404
+    assert cliente.get("/api/profile").status_code == 404
 
 
 def test_el_perfil_devuelve_su_avance(cliente: TestClient) -> None:
-    cliente.post("/api/profile/u1", json={"goal_distance": "21k", "age": 30})
-    cuerpo = cliente.get("/api/profile/u1").json()
+    cliente.post("/api/profile", json={"goal_distance": "21k", "age": 30})
+    cuerpo = cliente.get("/api/profile").json()
     assert cuerpo["carousel_done"] is True
     assert 0.0 < cuerpo["completeness"] < 1.0
 
@@ -208,7 +221,7 @@ async def _con_plan(sesion_factory: Any) -> None:
 
 
 def test_sin_plan_no_hay_csv(cliente: TestClient) -> None:
-    assert cliente.get("/api/plan/u1/export.csv").status_code == 404
+    assert cliente.get("/api/plan/export.csv").status_code == 404
 
 
 def test_el_csv_trae_una_fila_por_sesion(
@@ -217,7 +230,7 @@ def test_el_csv_trae_una_fila_por_sesion(
     import asyncio
 
     asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_con_plan(sesion_factory))
-    r = cliente.get("/api/plan/u1/export.csv")
+    r = cliente.get("/api/plan/export.csv")
     assert r.status_code == 200
 
     texto = r.content.decode("utf-8")
@@ -235,7 +248,7 @@ def test_el_csv_no_filtra_datos_personales(cliente: TestClient, sesion_factory: 
     import asyncio
 
     asyncio.get_event_loop_policy().new_event_loop().run_until_complete(_con_plan(sesion_factory))
-    texto = cliente.get("/api/plan/u1/export.csv").content.decode("utf-8")
+    texto = cliente.get("/api/plan/export.csv").content.decode("utf-8")
     assert "peso" not in texto.lower()
     assert "@" not in texto
 
@@ -272,7 +285,6 @@ def test_subir_una_captura_devuelve_lo_leido_y_lo_propuesto(
 ) -> None:
     r = con_vision.post(
         "/api/vision/workout",
-        data={"user_id": "u1"},
         files={"file": ("reloj.jpg", b"jpegfalso", "image/jpeg")},
     )
     assert r.status_code == 200
@@ -291,7 +303,6 @@ def test_el_endpoint_no_escribe_en_la_bitacora(con_vision: TestClient, sesion_fa
 
     con_vision.post(
         "/api/vision/workout",
-        data={"user_id": "u1"},
         files={"file": ("reloj.jpg", b"jpegfalso", "image/jpeg")},
     )
 
@@ -305,7 +316,6 @@ def test_el_endpoint_no_escribe_en_la_bitacora(con_vision: TestClient, sesion_fa
 def test_un_formato_que_no_es_imagen_se_rechaza(con_vision: TestClient) -> None:
     r = con_vision.post(
         "/api/vision/workout",
-        data={"user_id": "u1"},
         files={"file": ("plan.pdf", b"%PDF-1.4", "application/pdf")},
     )
     assert r.status_code == 415
@@ -314,7 +324,6 @@ def test_un_formato_que_no_es_imagen_se_rechaza(con_vision: TestClient) -> None:
 def test_una_imagen_vacia_se_rechaza(con_vision: TestClient) -> None:
     r = con_vision.post(
         "/api/vision/workout",
-        data={"user_id": "u1"},
         files={"file": ("vacia.jpg", b"", "image/jpeg")},
     )
     assert r.status_code == 400
@@ -333,7 +342,6 @@ def test_una_lectura_imposible_se_devuelve_para_corregir(cliente: TestClient) ->
     )
     r = cliente.post(
         "/api/vision/workout",
-        data={"user_id": "u1"},
         files={"file": ("reloj.jpg", b"x", "image/jpeg")},
     )
     app.dependency_overrides.pop(get_vision_client, None)
@@ -368,7 +376,6 @@ def test_sin_modelos_disponibles_se_degrada_a_captura_manual(cliente: TestClient
     app.dependency_overrides[get_vision_client] = ClienteVisionCaido
     r = cliente.post(
         "/api/vision/workout",
-        data={"user_id": "u1"},
         files={"file": ("reloj.jpg", b"x", "image/jpeg")},
     )
     app.dependency_overrides.pop(get_vision_client, None)

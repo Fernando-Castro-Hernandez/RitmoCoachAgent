@@ -18,8 +18,9 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from apps.api.auth import usuario_actual
 from apps.api.config import get_settings
-from apps.api.db.models import Base
+from apps.api.db.models import Base, UserRow
 from apps.api.db.session import get_session
 from apps.api.main import app
 from apps.api.telegram import issue_link_token
@@ -51,6 +52,11 @@ async def cliente(monkeypatch: pytest.MonkeyPatch) -> Any:
 
     monkeypatch.setattr("apps.api.telegram_api.send_message", _enviar)
     app.dependency_overrides[get_session] = sesion_de_prueba
+    # El webhook lo llama Telegram, sin cuenta; el resto son del corredor y van
+    # detrás del token. Se fija «mx» para que el resto del archivo siga leyéndose.
+    app.dependency_overrides[usuario_actual] = lambda: UserRow(
+        id="mx", email="mx@ritmo.test", hashed_password=""
+    )
 
     with TestClient(app) as c:
         c.enviados = enviados  # type: ignore[attr-defined]
@@ -118,7 +124,7 @@ async def test_start_con_token_valido_vincula_y_contesta(
     get_settings.cache_clear()
 
     async with cliente.fabrica() as s:
-        token = await issue_link_token(s, "u1")
+        token = await issue_link_token(s, "mx")
 
     r = cliente.post(
         "/api/telegram/webhook",
@@ -129,7 +135,7 @@ async def test_start_con_token_valido_vincula_y_contesta(
     assert r.json()["handled"] is True
     assert cliente.enviados[0][0] == 555
 
-    estado = cliente.get("/api/telegram/status/u1").json()
+    estado = cliente.get("/api/telegram/status").json()
     assert estado["linked"] is True
 
 
@@ -175,7 +181,7 @@ def test_sin_bot_configurado_el_enlace_es_nulo(
     monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "")
     get_settings.cache_clear()
 
-    cuerpo = cliente.post("/api/telegram/link/u1").json()
+    cuerpo = cliente.post("/api/telegram/link").json()
     assert cuerpo["deep_link"] is None
     assert cuerpo["configured"] is False
 
@@ -186,10 +192,10 @@ def test_con_bot_configurado_el_enlace_abre_el_bot(
     monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "ritmo_coach_bot")
     get_settings.cache_clear()
 
-    cuerpo = cliente.post("/api/telegram/link/u1").json()
+    cuerpo = cliente.post("/api/telegram/link").json()
     assert cuerpo["deep_link"].startswith("https://t.me/ritmo_coach_bot?start=")
     assert cuerpo["configured"] is True
 
 
 def test_sin_vincular_el_estado_lo_dice(cliente: Any) -> None:
-    assert cliente.get("/api/telegram/status/nadie").json()["linked"] is False
+    assert cliente.get("/api/telegram/status").json()["linked"] is False

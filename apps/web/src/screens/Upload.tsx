@@ -35,7 +35,6 @@ import { useT } from "../i18n";
 type Fase = "elegir" | "leyendo" | "revisar" | "manual";
 
 interface Props {
-  userId: string;
   onClose: () => void;
   onSave: (s: { distanceKm: number; durationSec: number; paceSecPerKm: number }) => void;
 }
@@ -75,7 +74,7 @@ function Campo({
   );
 }
 
-export function Upload({ userId, onClose, onSave }: Props) {
+export function Upload({ onClose, onSave }: Props) {
   const { t } = useT();
   const [fase, setFase] = useState<Fase>("elegir");
   const [respuesta, setRespuesta] = useState<VisionResponse | null>(null);
@@ -95,7 +94,7 @@ export function Upload({ userId, onClose, onSave }: Props) {
     setFase("leyendo");
     setError("");
     try {
-      const r = await readWatchScreenshot(userId, f);
+      const r = await readWatchScreenshot(f);
       setRespuesta(r);
       if (r.mode === "manual" || !r.proposed) {
         setFase("manual");

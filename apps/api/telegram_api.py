@@ -2,8 +2,8 @@
 
 Tres endpoints y una regla que los separa en dos mundos:
 
-- `/api/telegram/link/{user_id}` y `/api/telegram/status/{user_id}` los llama la
-  interfaz. Son del corredor.
+- `/api/telegram/link` y `/api/telegram/status` los llama la interfaz. Son del
+  corredor, y el corredor sale del token — nunca de la URL.
 - `/api/telegram/webhook` lo llama Telegram. **Es público**, escribe
   vinculaciones, y por eso es el único sitio de la API que valida un secreto
   compartido antes de mirar el cuerpo.
@@ -30,6 +30,7 @@ import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.auth import UsuarioActual
 from apps.api.config import get_settings
 from apps.api.db.session import get_session
 from apps.api.telegram import (
@@ -60,15 +61,15 @@ ENLACE_INVALIDO = (
 )
 
 
-@router.post("/link/{user_id}")
-async def crear_enlace(user_id: str, sesion: Sesion) -> dict[str, Any]:
+@router.post("/link")
+async def crear_enlace(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
     """Emite el enlace profundo de vinculación.
 
     Devuelve `deep_link: null` cuando no hay bot configurado, para que la
     pantalla pueda decir «Telegram no está disponible» en vez de ofrecer un
     enlace roto.
     """
-    token = await issue_link_token(sesion, user_id)
+    token = await issue_link_token(sesion, usuario.id)
     enlace = deep_link(token)
     return {
         "deep_link": enlace,
@@ -77,15 +78,15 @@ async def crear_enlace(user_id: str, sesion: Sesion) -> dict[str, Any]:
     }
 
 
-@router.get("/status/{user_id}")
-async def estado(user_id: str, sesion: Sesion) -> dict[str, Any]:
+@router.get("/status")
+async def estado(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
     """Si este corredor recibe avisos por Telegram.
 
     No devuelve el `chat_id`. La pantalla sólo necesita saber si está vinculado
     o no, y un identificador que no se usa es un identificador que se filtra.
     """
     return {
-        "linked": await chat_id_for(sesion, user_id) is not None,
+        "linked": await chat_id_for(sesion, usuario.id) is not None,
         "bot_configured": bool(get_settings().telegram_bot_username),
     }
 

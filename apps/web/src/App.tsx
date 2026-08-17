@@ -1,26 +1,35 @@
 /**
  * La aplicación.
  *
- * El primer arranque manda: sin perfil se entra al carrusel, con perfil se
- * entra a la hoja. Un desconocido que abre la URL en frío recorre lo mismo que
- * recorrería un corredor real, porque **es** lo mismo — no hay cuenta que crear
- * ni sesión que iniciar, la identidad es un UUID del navegador (ver api.ts).
+ * Tres puertas, en orden: cuenta, carrusel, hoja.
+ *
+ *   sin token          → Auth
+ *   con token, sin carrusel → Onboarding
+ *   con token y carrusel    → la hoja
+ *
+ * Quién decide la segunda es el SERVIDOR: `onboarded` llega en la respuesta de
+ * entrar y de registrarse. Si viviera en `localStorage`, entrar desde otro
+ * teléfono le repetiría el carrusel a alguien que ya lo hizo.
+ *
+ * Registrarse cae directo en el carrusel, sin pantalla intermedia: quien acaba
+ * de escribir su contraseña ya demostró lo que hay que demostrar.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   type HardProfile,
-  fetchProfile,
-  getUserId,
-  markOnboarded,
+  type Sesion,
+  getToken,
+  logout,
+  me,
   saveProfile,
-  startOver,
 } from "./api";
 import type { Safety, WeekContext } from "./components/Sheet";
 import type { Session } from "./components/SessionField";
 import type { Turn } from "./components/Transcript";
 import { useT } from "./i18n";
+import { Auth } from "./screens/Auth";
 import { Main } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
 import { Upload } from "./screens/Upload";
@@ -32,7 +41,7 @@ import {
   transition,
 } from "./state/voiceMachine";
 
-type Pantalla = "cargando" | "onboarding" | "hoja" | "captura";
+type Pantalla = "cargando" | "auth" | "onboarding" | "hoja" | "captura";
 
 /**
  * Forzar un estado desde la URL: `?estado=safety-red`, `?estado=listening`…
@@ -93,7 +102,6 @@ const SESION_DEMO: Session = {
 export default function App() {
   const { t, locale } = useT();
   const [pantalla, setPantalla] = useState<Pantalla>("cargando");
-  const [userId] = useState(getUserId);
   const [maquina, setMaquina] = useState<VoiceMachine>(initialMachine);
   const [nivel, setNivel] = useState(0);
   const [turnos, setTurnos] = useState<Turn[]>([]);
@@ -105,24 +113,32 @@ export default function App() {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  // ¿Corredor nuevo o conocido? Es lo único que decide qué pantalla se abre.
+  // ¿Hay sesión, y hasta dónde llegó? Es lo único que decide qué se abre.
+  //
+  // Se pregunta al servidor en vez de confiar en que el token exista: un token
+  // guardado hace siete días puede estar vencido, y descubrirlo al fallar la
+  // primera acción de verdad es peor que descubrirlo al arrancar.
   useEffect(() => {
     let vivo = true;
-    fetchProfile(userId)
-      .then((p) => {
+    if (!getToken()) {
+      setPantalla(forzado.pantalla ?? "auth");
+      return;
+    }
+    me()
+      .then((r) => {
         if (!vivo) return;
-        setPantalla(forzado.pantalla ?? (p?.carousel_done ? "hoja" : "onboarding"));
+        setPantalla(forzado.pantalla ?? (r.onboarded ? "hoja" : "onboarding"));
       })
       .catch(() => {
-        // Sin backend la aplicación no se queda en blanco: se entra al
-        // carrusel, que es donde un corredor nuevo tiene que estar de todos
-        // modos, y el guardado avisará si sigue caído.
-        if (vivo) setPantalla(forzado.pantalla ?? "onboarding");
+        // `pedir` ya limpia el token y recarga ante un 401. Si se llega aquí es
+        // otra cosa —backend caído, red— y la entrada es el sitio honesto donde
+        // esperar: no hay datos que enseñar sin servidor.
+        if (vivo) setPantalla(forzado.pantalla ?? "auth");
       });
     return () => {
       vivo = false;
     };
-  }, [userId, forzado.pantalla]);
+  }, [forzado.pantalla]);
 
   const enviarEvento = useCallback((evento: VoiceEvent) => {
     setMaquina((m) => transition(m, evento));
@@ -141,15 +157,15 @@ export default function App() {
     });
     sesion.current = s;
     try {
-      if (soloTexto) await s.startTextOnly(userId);
-      else await s.start(userId);
+      if (soloTexto) await s.startTextOnly();
+      else await s.start();
       return true;
     } catch (e) {
       enviarEvento({ type: "ERROR", message: e instanceof Error ? e.message : "no pude conectar" });
       sesion.current = null;
       return false;
     }
-  }, [enviarEvento, userId]);
+  }, [enviarEvento]);
 
   const cerrarSesion = useCallback(async () => {
     await sesion.current?.stop();
@@ -206,9 +222,12 @@ export default function App() {
   };
 
   const terminarOnboarding = async (perfil: HardProfile) => {
-    await saveProfile(userId, perfil);
-    markOnboarded();
+    await saveProfile(perfil);
     setPantalla("hoja");
+  };
+
+  const entrar = (sesion: Sesion) => {
+    setPantalla(sesion.onboarded ? "hoja" : "onboarding");
   };
 
   if (pantalla === "cargando") {
@@ -219,6 +238,10 @@ export default function App() {
     );
   }
 
+  if (pantalla === "auth") {
+    return <Auth onReady={entrar} />;
+  }
+
   if (pantalla === "onboarding") {
     return <Onboarding onDone={terminarOnboarding} />;
   }
@@ -226,7 +249,6 @@ export default function App() {
   if (pantalla === "captura") {
     return (
       <Upload
-        userId={userId}
         onClose={() => setPantalla("hoja")}
         onSave={({ distanceKm, paceSecPerKm }) => {
           setTurnos((v) => [
@@ -262,10 +284,10 @@ export default function App() {
         }}
       onUpload={() => setPantalla("captura")}
       ttfaMs={ttfa}
-      /* Volver a ver el primer arranque sin borrar datos a mano: hace falta
-         para ensayar la demo y para que cualquiera pruebe la app en frío. En
-         producción viviría dentro de ajustes. */
-      onStartOver={startOver}
+      /* Cerrar sesión. Antes esto borraba el UUID del navegador y con él al
+         corredor entero; ahora sólo suelta el token y los datos siguen en su
+         cuenta, que es lo que la gente espera de un «cerrar sesión». */
+      onStartOver={logout}
       /* La hoja todavía no consume GET /api/plan: lo que se ve es una muestra,
          y se dice. Un desconocido que abre la URL en frío no puede confundir
          datos de ejemplo con una prescripción hecha para él — la regla 2 del

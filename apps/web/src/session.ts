@@ -16,6 +16,7 @@
  *   de la Fase 1 y se paga en la primera demo si no está.
  */
 
+import { getToken } from "./api";
 import { MicCapture } from "./audio/capture";
 import { VoicePlayer } from "./audio/player";
 import type { VoiceEvent } from "./state/voiceMachine";
@@ -73,12 +74,12 @@ export class VoiceSession {
    * cuando alguien lo deniega — o cuando simplemente no quiere hablar en el
    * transporte público.
    */
-  async startTextOnly(userId: string): Promise<void> {
-    await this.conectar(userId);
+  async startTextOnly(): Promise<void> {
+    await this.conectar();
   }
 
-  async start(userId: string): Promise<void> {
-    await this.conectar(userId);
+  async start(): Promise<void> {
+    await this.conectar();
 
     await this.mic.start((pcm, peak) => {
       this.handlers.onLevel(peak);
@@ -105,18 +106,34 @@ export class VoiceSession {
   }
 
   /** Abre el socket y el contexto de audio. Común a los dos modos. */
-  private async conectar(userId: string): Promise<void> {
+  private async conectar(): Promise<void> {
     // El AudioContext tiene que nacer del gesto del usuario que llamó aquí, o
     // iOS Safari lo deja suspendido y no suena nada. También en modo texto: el
     // coach responde hablando aunque le hayas escrito.
     await this.player.ensureContext();
 
     const protocolo = location.protocol === "https:" ? "wss" : "ws";
-    this.ws = new WebSocket(`${protocolo}://${location.host}/ws/voice/${userId}`);
+    // El token va en la query y no en una cabecera porque los navegadores no
+    // dejan poner cabeceras al abrir un WebSocket. La contrapartida —queda en
+    // los logs del proxy— está anotada en `apps/api/ws.py`; se acota con la
+    // vida corta del token.
+    //
+    // Ya no lleva `user_id`: el servidor lo saca del token. Mandarlo permitía
+    // abrir una sesión de voz como cualquier otra persona.
+    const token = encodeURIComponent(getToken() ?? "");
+    this.ws = new WebSocket(`${protocolo}://${location.host}/ws/voice?token=${token}`);
     this.ws.onmessage = (e) => this.recibir(JSON.parse(e.data));
     this.ws.onerror = () =>
       this.handlers.onEvent({ type: "ERROR", message: "Se perdió la conexión" });
-    this.ws.onclose = () => this.handlers.onEvent({ type: "HANG_UP" });
+    this.ws.onclose = (e) => {
+      // 1008 es «política»: el backend rechazó el token. No es una caída de
+      // red, así que reintentar no sirve — hay que volver a entrar.
+      if (e.code === 1008) {
+        this.handlers.onEvent({ type: "ERROR", message: "Tu sesión venció" });
+        return;
+      }
+      this.handlers.onEvent({ type: "HANG_UP" });
+    };
 
     // Se espera al `ready` del backend y no sólo al `open` del socket. Abrir el
     // WebSocket sólo dice que hay tubería; `ready` dice que el modelo aceptó la

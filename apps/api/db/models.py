@@ -48,6 +48,32 @@ class Base(DeclarativeBase):
     pass
 
 
+class UserRow(Base):
+    """Una cuenta. El dueño de todo lo demás.
+
+    Antes la identidad era un UUID del navegador y el backend confiaba en él;
+    ahora hay correo y contraseña. El cambio no es cosmético: significa que
+    `user_id` deja de ser un dato que manda el cliente y pasa a salir de un
+    token firmado. Ver `auth.py`.
+
+    **La contraseña no está aquí.** Lo que se guarda es el hash de bcrypt, con
+    su sal dentro. Nadie —ni con acceso a la base— puede leer la contraseña de
+    nadie, que es lo mínimo cuando la misma contraseña se reutiliza en otros
+    sitios.
+
+    El correo se guarda normalizado a minúsculas y sin espacios: si no,
+    `Fernando@x.com` y `fernando@x.com` acaban siendo dos cuentas distintas y la
+    persona jura que su contraseña no funciona.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_ahora)
+
+
 class AthleteProfileRow(Base):
     """El perfil. Lo escribe el corredor, en dos capas (tarea C4).
 
@@ -57,7 +83,8 @@ class AthleteProfileRow(Base):
 
     __tablename__ = "athlete_profile"
 
-    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # Referencia a la cuenta. El perfil no existe sin dueño.
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), primary_key=True)
 
     # ── capa dura · carrusel ─────────────────────────────────────────
     level: Mapped[str] = mapped_column(String(16), default="principiante")
@@ -132,7 +159,7 @@ class SessionLogRow(Base):
     __table_args__ = (Index("ix_session_log_user_fecha", "user_id", "occurred_on"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"), index=True)
     occurred_on: Mapped[date] = mapped_column(Date)
     distance_km: Mapped[float] = mapped_column(Float)
     duration_sec: Mapped[int] = mapped_column(Integer)

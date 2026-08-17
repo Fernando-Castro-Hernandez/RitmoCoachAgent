@@ -2,6 +2,12 @@
 
 Los usa el carrusel de onboarding (capa dura) y la descarga en CSV. La capa
 blanda no pasa por aquí: sale hablando, por el WebSocket de voz.
+
+**El `user_id` ya no viaja en la URL.** Sale del token, y sólo de ahí. Cuando la
+identidad era un UUID del navegador, `GET /api/profile/<cualquier-cosa>`
+contestaba con el perfil de cualquiera; quitar el parámetro es lo que hace que
+ese agujero no pueda volver por descuido. Un parámetro que no existe no se
+puede olvidar de comprobar.
 """
 
 from __future__ import annotations
@@ -16,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.auth import UsuarioActual
 from apps.api.db.repo import ProfileRepo, StateRepo
 from apps.api.db.session import get_session
 from apps.api.onboarding import (
@@ -65,9 +72,12 @@ class HardProfile(BaseModel):
     level: str | None = Field(None, pattern="^(principiante|intermedio|avanzado)$")
 
 
-@router.post("/profile/{user_id}")
-async def save_hard_profile(user_id: str, cuerpo: HardProfile, sesion: Sesion) -> dict[str, Any]:
+@router.post("/profile")
+async def save_hard_profile(
+    cuerpo: HardProfile, sesion: Sesion, usuario: UsuarioActual
+) -> dict[str, Any]:
     """Guarda la capa dura y dice qué le queda por preguntar a la voz."""
+    user_id = usuario.id
     campos = {k: v for k, v in cuerpo.model_dump().items() if v is not None}
     repo = ProfileRepo(sesion)
     await repo.save(user_id, **campos)
@@ -84,9 +94,9 @@ async def save_hard_profile(user_id: str, cuerpo: HardProfile, sesion: Sesion) -
     }
 
 
-@router.get("/profile/{user_id}")
-async def get_profile(user_id: str, sesion: Sesion) -> dict[str, Any]:
-    contexto = await ProfileRepo(sesion).context(user_id)
+@router.get("/profile")
+async def get_profile(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
+    contexto = await ProfileRepo(sesion).context(usuario.id)
     if contexto is None:
         raise HTTPException(404, "no hay perfil todavía")
     return {
@@ -98,14 +108,15 @@ async def get_profile(user_id: str, sesion: Sesion) -> dict[str, Any]:
     }
 
 
-@router.get("/plan/{user_id}/export.csv")
-async def export_plan_csv(user_id: str, sesion: Sesion) -> Response:
+@router.get("/plan/export.csv")
+async def export_plan_csv(sesion: Sesion, usuario: UsuarioActual) -> Response:
     """El plan activo en CSV.
 
     Responde a algo que la entrevista de la Fase 2 dejó claro: el corredor
     experimentado ya lleva su hoja de cálculo. No se le pide que la abandone; se
     le llena.
     """
+    user_id = usuario.id
     plan = await StateRepo(sesion).get(user_id)
     if plan is None:
         raise HTTPException(404, "no hay plan que exportar")

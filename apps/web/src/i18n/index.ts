@@ -135,6 +135,32 @@ const es = {
     "Construye la base aeróbica. Va lento a propósito: el objetivo es el tiempo de pie, no el ritmo.",
   demoReferral:
     "Eso que sientes merece que lo revise un profesional antes de que sigamos. No voy a darte entrenamiento hasta que lo veas.",
+
+  // ── cuentas ──────────────────────────────────────────────────────
+  formCodeAuth: "FORMULARIO RIT-01 · ALTA",
+  authEmail: "Correo",
+  authPassword: "Contraseña",
+  authEnter: "Entrar",
+  authCreate: "Crear cuenta",
+  authWorking: "Un momento…",
+  authNoAccount: "No tengo cuenta todavía",
+  authHaveAccount: "Ya tengo cuenta",
+  authNewHint: "Crea tu cuenta y empezamos con unas preguntas.",
+  authBackHint: "Entra y seguimos donde lo dejamos.",
+  authMinChars: "Mínimo {n} caracteres",
+  authFailed: "No pude entrar. Inténtalo otra vez.",
+  logout: "Cerrar sesión",
+
+  // ── Telegram ─────────────────────────────────────────────────────
+  tgTitle: "Telegram",
+  tgWhy: "Te escribo la sesión del día por la mañana y te busco si algo va mal.",
+  tgConnect: "Conectar Telegram",
+  tgOpening: "Abriendo Telegram…",
+  tgExpires: "El enlace vale quince minutos y se usa una vez.",
+  tgLinked: "CONECTADO",
+  tgLinkedWhy: "Ya te escribo por aquí. Puedes silenciarme desde Telegram cuando quieras.",
+  tgNoBot: "El canal de Telegram no está disponible en este servidor.",
+  tgError: "No pude comprobar tu Telegram ahorita.",
 } as const;
 
 type Dict = Record<keyof typeof es, string>;
@@ -251,6 +277,30 @@ const en: Dict = {
   demoWhy: "Builds your aerobic base. It is slow on purpose: the goal is time on feet, not pace.",
   demoReferral:
     "What you are describing deserves a professional look before we carry on. I am not giving you training until you get it checked.",
+
+  formCodeAuth: "FORM RIT-01 · SIGN UP",
+  authEmail: "Email",
+  authPassword: "Password",
+  authEnter: "Sign in",
+  authCreate: "Create account",
+  authWorking: "One moment…",
+  authNoAccount: "I do not have an account yet",
+  authHaveAccount: "I already have an account",
+  authNewHint: "Create your account and we start with a few questions.",
+  authBackHint: "Sign in and we pick up where we left off.",
+  authMinChars: "At least {n} characters",
+  authFailed: "I could not sign you in. Try again.",
+  logout: "Sign out",
+
+  tgTitle: "Telegram",
+  tgWhy: "I send you the day's session in the morning, and I check on you if something is off.",
+  tgConnect: "Connect Telegram",
+  tgOpening: "Opening Telegram…",
+  tgExpires: "The link lasts fifteen minutes and works once.",
+  tgLinked: "CONNECTED",
+  tgLinkedWhy: "I write to you here now. You can mute me from Telegram whenever you want.",
+  tgNoBot: "The Telegram channel is not available on this server.",
+  tgError: "I could not check your Telegram right now.",
 };
 
 const DICTS: Record<Locale, Dict> = { es, en };

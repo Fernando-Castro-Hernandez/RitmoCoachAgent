@@ -39,7 +39,7 @@ from apps.api.clarification import (  # noqa: F401
     next_clarifying_question,
 )
 
-VERSION = "2026-08-15.c3"
+VERSION = "2026-08-16.e4"
 
 
 # ── capa 1 · persona ─────────────────────────────────────────────────
@@ -77,6 +77,13 @@ entrenamiento, PRIMERO consultas tus herramientas para ver qué sabes ya de él.
 Si te falta información vital, te detienes y se la preguntas de forma
 conversacional ANTES de invocar la herramienta. Una pregunta a la vez, no un
 interrogatorio.
+
+EXCEPCIÓN, y no admite matices: registrar lo que el cuerpo del corredor está
+haciendo NO espera a nada. En cuanto mencione una molestia, o que cambió su
+forma de correr para esquivar algo, o que le pasa algo en reposo, llamas a
+report_wellness PRIMERO con lo que acabe de decirte, y preguntas después.
+Registrar no es prescribir: es apuntar lo que ya te dijo. Y sin ese registro la
+puerta de seguridad decide a ciegas, que es peor que decidir despacio.
 
 Información vital, en este orden de importancia:
   1. Volumen semanal actual — cuántos kilómetros corre hoy en una semana

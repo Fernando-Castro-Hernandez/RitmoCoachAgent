@@ -67,12 +67,35 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         },
     ),
     "report_wellness": (
-        "Registra dolor o molestia. Llámala EN CUANTO el corredor mencione que "
-        "algo le duele, antes de responder nada sobre entrenamiento: la puerta de "
-        "seguridad se evalúa con esto y puede cambiar lo que tienes permitido "
-        "decir. Las banderas van en inglés, tal como se listan.",
+        "Registra cualquier señal del cuerpo, antes de responder nada sobre "
+        "entrenamiento: la puerta de seguridad se evalúa con esto y puede cambiar "
+        "lo que tienes permitido decir.\n"
+        "\n"
+        "**El mecanismo cuenta tanto como el síntoma.** Llámala aunque el "
+        "corredor NO use la palabra «dolor», aunque diga que es cero, y aunque le "
+        "quite importancia él mismo. Todo esto la dispara:\n"
+        "- Cambió la forma de correr para esquivar algo: «corro raro», «cojeo», "
+        "«voy apoyando distinto», «piso con cuidado» → altered_gait\n"
+        "- Le molesta en reposo o de noche, sin haber corrido → night_or_rest_pain\n"
+        "- Empeora mientras corre en vez de aflojar → worsens_during_run\n"
+        "- Un punto exacto del hueso → bone_point_pain\n"
+        "- Se le duerme algo, hormigueo → numbness_tingling\n"
+        "- Hinchazón visible → swelling\n"
+        "- Pecho, mareo, falta de aire desproporcionada → la bandera que toque\n"
+        "\n"
+        "«No me duele casi nada, pero llevo dos semanas corriendo raro» ES un "
+        "reporte: pon el dolor que él diga y la bandera del mecanismo. Frenar de "
+        "más cuesta una sesión; no registrar un mecanismo cuesta una lesión.\n"
+        "\n"
+        "Las banderas van en inglés, tal como se listan.",
         {
-            "pain_score": {"type": "integer", "description": "dolor de 0 a 10"},
+            "pain_score": {
+                "type": "integer",
+                "description": (
+                    "dolor de 0 a 10, tal como lo diga el corredor. Un 0 es válido "
+                    "y NO es razón para saltarse la llamada si hay un mecanismo."
+                ),
+            },
             "pain_area": {"type": "string", "description": "dónde, en palabras del corredor"},
             "flags": {
                 "type": "array",

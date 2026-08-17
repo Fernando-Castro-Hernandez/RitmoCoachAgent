@@ -14,6 +14,7 @@ from typing import Any
 from coach_domain import __version__ as domain_version
 from fastapi import FastAPI
 
+from apps.api.auth_api import router as auth_router
 from apps.api.automation_api import router as automation_router
 from apps.api.credentials import ensure_aws_credentials
 from apps.api.debug import router as debug_router
@@ -43,6 +44,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+app.include_router(auth_router)
 app.include_router(ws_router)
 app.include_router(profile_router)
 app.include_router(vision_router)
@@ -72,5 +74,8 @@ def config() -> dict[str, Any]:
         "prompt_version": PROMPT_VERSION,
         "aws_credentials_resolved": bool(os.getenv("AWS_ACCESS_KEY_ID")),
         "telegram_configured": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
+        # Sin esto los tokens se firman con un secreto de proceso y reiniciar
+        # la API cierra la sesión de todo el mundo. Ver auth.py.
+        "jwt_secret_configured": bool(os.getenv("JWT_SECRET")),
         "langfuse_configured": bool(os.getenv("LANGFUSE_PUBLIC_KEY")),
     }

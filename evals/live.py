@@ -40,9 +40,14 @@ async def _fabrica(perfil: str) -> tuple[Any, Any]:
 
     async with fabrica() as db:
         if perfil == "completo":
+            # Meta de maratón CON fecha: los escenarios de clarificación piden
+            # un maratón, y un maratón sin fecha NO es contexto completo — el
+            # modelo tiene razón en preguntarla. La primera corrida en vivo
+            # falló aquí por el fixture, no por el coach.
             await ProfileRepo(db).save(
                 "eval",
-                goal_distance="10k",
+                goal_distance="42k",
+                race_date=lunes + timedelta(weeks=20),
                 days_per_week=4,
                 weekly_volume_km=30.0,
                 longest_run_km=12.0,
@@ -60,7 +65,7 @@ async def _fabrica(perfil: str) -> tuple[Any, Any]:
                 reference_distance_km=10.0,
                 reference_time_sec=3000,
             )
-            plan = build_plan(atleta, RaceDistance.K10, lunes + timedelta(weeks=10), lunes)
+            plan = build_plan(atleta, RaceDistance.K42, lunes + timedelta(weeks=20), lunes)
             await StateRepo(db).apply("eval", plan, reason="eval")
         else:
             await ProfileRepo(db).save("eval", goal_distance="42k")

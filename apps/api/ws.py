@@ -6,6 +6,16 @@ Dos bombas corriendo en paralelo mientras dure la sesión:
     Bedrock → navegador    audio, transcripciones y fin de turno
 
 Ninguna de las dos acumula: reenvían en cuanto reciben.
+
+**El token viaja en la URL, y hay que decir por qué.** Los navegadores no dejan
+poner cabeceras al abrir un WebSocket, así que la única forma de autenticar el
+apretón de manos es la query string — y eso significa que el token acaba en los
+logs del proxy. Se acota con la vida corta del token (siete días, ver `auth.py`)
+y sabiendo que es el precio de no tener un segundo mecanismo de sesión.
+
+Lo que NO se hace es aceptar el `user_id` de la ruta. Antes cualquiera podía
+abrir `/ws/voice/<lo-que-sea>` y hablar como esa persona. Ahora la ruta no lleva
+identificador: lo pone el token o no hay sesión.
 """
 
 from __future__ import annotations
@@ -16,6 +26,7 @@ import contextlib
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from apps.api.auth import usuario_de_token
 from apps.api.bridge import NovaBridge
 from apps.api.config import get_settings
 from apps.api.db.session import get_sessionmaker
@@ -62,10 +73,24 @@ async def _bedrock_to_browser(ws: WebSocket, bridge: RenewingBridge) -> None:
             return
 
 
-@router.websocket("/ws/voice/{user_id}")
-async def voice_socket(ws: WebSocket, user_id: str) -> None:
-    await ws.accept()
+@router.websocket("/ws/voice")
+async def voice_socket(ws: WebSocket, token: str = "") -> None:
     settings = get_settings()
+
+    # Se autentica ANTES de aceptar. Aceptar y cerrar después deja el micrófono
+    # del navegador abierto un instante y le dice a quien prueba que la ruta
+    # existe y responde.
+    async with get_sessionmaker()() as sesion:
+        usuario = await usuario_de_token(sesion, token)
+    if usuario is None:
+        # 1008 · violación de política. El frontend lo distingue de una caída de
+        # red y manda a la pantalla de entrada en vez de reintentar en bucle.
+        await ws.close(code=1008, reason="sesión inválida")
+        log.info("ws.rechazado")
+        return
+
+    user_id = usuario.id
+    await ws.accept()
 
     # El `user_id` sale del WebSocket y se le impone a cada herramienta. El que
     # mande el modelo en los argumentos se descarta: ver `tool_runner.py`.

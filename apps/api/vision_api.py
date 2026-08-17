@@ -14,9 +14,10 @@ from dataclasses import asdict
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.auth import UsuarioActual
 from apps.api.config import get_settings
 from apps.api.db.session import get_session
 from apps.api.vision.anthropic_client import AnthropicVisionClient
@@ -69,10 +70,15 @@ async def _leer_imagen(archivo: UploadFile) -> bytes:
 @router.post("/workout")
 async def leer_captura(
     cliente: ClienteVision,
-    user_id: Annotated[str, Form()],
+    usuario: UsuarioActual,
     file: Annotated[UploadFile, File()],
 ) -> dict[str, Any]:
-    """Lee una captura del reloj. **No guarda nada.**"""
+    """Lee una captura del reloj. **No guarda nada.**
+
+    El `user_id` sale del token y ya no del formulario: mandarlo el cliente
+    permitía subirle una captura a la bitácora de otra persona.
+    """
+    user_id = usuario.id
     datos = await _leer_imagen(file)
 
     try:

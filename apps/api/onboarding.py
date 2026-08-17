@@ -86,8 +86,16 @@ _SOFT_ORDER: tuple[str, ...] = (
 )
 
 
-def can_finish_carousel(answers: dict[str, Any]) -> bool:
-    """Si el carrusel puede cerrarse con lo que lleva."""
+def can_finish_carousel(answers: dict[str, Any] | None) -> bool:
+    """Si el carrusel puede cerrarse con lo que lleva.
+
+    Acepta `None`, que es lo que devuelve el perfil de una cuenta recién creada.
+    Antes reventaba: con la identidad en el navegador nunca llegaba un `None`
+    aquí, porque el perfil se creaba antes de preguntar nada. Con cuentas, el
+    primer sitio que consulta esto es la respuesta del registro.
+    """
+    if not answers:
+        return False
     return all(answers.get(c) is not None for c in CAROUSEL_REQUIRED)
 
 

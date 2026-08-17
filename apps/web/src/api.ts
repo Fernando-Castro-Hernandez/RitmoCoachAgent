@@ -1,43 +1,123 @@
 /**
  * Identidad y cliente de la API.
  *
- * **No hay cuentas.** Ni registro, ni contraseña, ni correo. La identidad es un
- * UUID que vive en el navegador, y el backend confía en él.
+ * **Hay cuentas.** Correo, contraseña y un JWT. Sustituye al UUID del navegador
+ * que había antes, y el cambio de fondo no es «ahora hay login»: es que el
+ * `user_id` deja de viajar en la URL. Antes `GET /api/profile/<lo-que-sea>`
+ * contestaba con el perfil de cualquiera; ahora no hay dónde poner el ajeno,
+ * porque el backend lo saca del token firmado.
  *
- * Es una decisión de alcance, no un descuido, y conviene poder defenderla: la
- * autenticación no prueba nada de la tesis del producto —que el coach pregunte
- * antes de prescribir y que los números salgan de un motor— y sí cuesta horas
- * que hacen falta en la voz. Queda declarado en el README como fuera de alcance.
+ * El token vive en `localStorage` y no en una cookie `httpOnly`, que resistiría
+ * mejor un XSS. La razón es concreta: el WebSocket de voz necesita el token al
+ * abrirse y los navegadores no dejan poner cabeceras ahí, así que el JavaScript
+ * tiene que poder leerlo de todas formas. Guardarlo en dos sitios sería
+ * complejidad sin beneficio. Queda anotado como deuda consciente, no olvidada.
  *
- * La consecuencia buena: cualquiera que abra la URL entra como usuario nuevo y
- * recorre el primer arranque completo, que es exactamente lo que un evaluador
- * tiene que poder hacer.
- *
- * La consecuencia mala, y hay que decirla: borrar los datos del navegador borra
- * al corredor. No hay recuperación porque no hay a dónde recuperar.
+ * Lo que se perdió con el cambio, y hay que decirlo: ya no basta con abrir la
+ * URL para entrar. Un evaluador tiene que registrarse —quince segundos— o usar
+ * la cuenta de demostración que siembra `scripts/seed_demo.py`.
  */
 
-const CLAVE_ID = "ritmo.userId";
+const CLAVE_TOKEN = "ritmo.token";
 
-export function getUserId(): string {
-  let id = window.localStorage.getItem(CLAVE_ID);
-  if (!id) {
-    id = crypto.randomUUID();
-    window.localStorage.setItem(CLAVE_ID, id);
-  }
-  return id;
+export interface Cuenta {
+  id: string;
+  email: string;
 }
 
-/** Borra la identidad y todo lo local. Para volver a ver el primer arranque. */
-export function startOver(): void {
-  window.localStorage.removeItem(CLAVE_ID);
-  window.localStorage.removeItem("ritmo.onboarded");
+export interface Sesion {
+  token: string;
+  user: Cuenta;
+  /**
+   * Si ya completó el carrusel. Lo decide el SERVIDOR, no el navegador: si
+   * viviera en `localStorage`, entrar desde otro teléfono le repetiría el
+   * onboarding a alguien que ya lo hizo.
+   */
+  onboarded: boolean;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+export function getToken(): string | null {
+  return window.localStorage.getItem(CLAVE_TOKEN);
+}
+
+export function setToken(token: string): void {
+  window.localStorage.setItem(CLAVE_TOKEN, token);
+}
+
+/** Cierra la sesión y vuelve a la entrada. */
+export function logout(): void {
+  window.localStorage.removeItem(CLAVE_TOKEN);
   window.location.reload();
 }
 
-export function markOnboarded(): void {
-  window.localStorage.setItem("ritmo.onboarded", "1");
+const RUTAS_DE_ENTRADA = ["/api/auth/login", "/api/auth/register"];
+
+/**
+ * Toda petición pasa por aquí, y por eso el token se pone en un solo sitio.
+ *
+ * Un 401 no se propaga como un error cualquiera: borra el token y recarga. Es
+ * la única respuesta útil a «tu sesión venció» — dejar la aplicación andando
+ * con un token muerto produce una pantalla que falla en cada acción sin decir
+ * por qué. Se excluyen las rutas de entrada: ahí un 401 significa «contraseña
+ * incorrecta» y tiene que llegar al formulario para poder mostrarse.
+ */
+async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
+  const cabeceras = new Headers(init?.headers);
+  if (token) cabeceras.set("Authorization", `Bearer ${token}`);
+
+  const r = await fetch(ruta, { ...init, headers: cabeceras });
+
+  if (r.status === 401 && !RUTAS_DE_ENTRADA.some((x) => ruta.startsWith(x))) {
+    window.localStorage.removeItem(CLAVE_TOKEN);
+    window.location.reload();
+  }
+
+  if (!r.ok) {
+    let detalle = "";
+    try {
+      detalle = ((await r.json()) as { detail?: string }).detail ?? "";
+    } catch {
+      // Un cuerpo que no es JSON no puede tumbar el manejo del error.
+    }
+    throw new ApiError(detalle || `${init?.method ?? "GET"} ${ruta}`, r.status);
+  }
+  return (await r.json()) as T;
 }
+
+// ── cuentas ──────────────────────────────────────────────────────────
+
+function credenciales(ruta: string, email: string, password: string) {
+  return pedir<Sesion>(ruta, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function register(email: string, password: string) {
+  return credenciales("/api/auth/register", email, password);
+}
+
+export function login(email: string, password: string) {
+  return credenciales("/api/auth/login", email, password);
+}
+
+/** Confirma al arrancar que el token guardado sigue valiendo. */
+export function me() {
+  return pedir<{ user: Cuenta; onboarded: boolean }>("/api/auth/me");
+}
+
+// ── perfil ───────────────────────────────────────────────────────────
 
 export interface HardProfile {
   goal_distance: string;
@@ -57,6 +137,26 @@ export interface ProfileResponse {
   carousel_done: boolean;
   next_voice_question: string | null;
 }
+
+export async function fetchProfile(): Promise<ProfileResponse | null> {
+  try {
+    return await pedir<ProfileResponse>("/api/profile");
+  } catch (e) {
+    // 404 no es un fallo: es una cuenta que todavía no llenó el carrusel.
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+export function saveProfile(perfil: HardProfile) {
+  return pedir<{ ok: boolean; next_voice_question: string | null }>("/api/profile", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(perfil),
+  });
+}
+
+// ── visión ───────────────────────────────────────────────────────────
 
 export interface WorkoutExtraction {
   distance_km: number | null;
@@ -88,51 +188,51 @@ export interface VisionResponse {
   pace_is_computed?: boolean;
 }
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
-async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(ruta, init);
-  if (!r.ok) {
-    throw new ApiError(`${init?.method ?? "GET"} ${ruta}`, r.status);
-  }
-  return (await r.json()) as T;
-}
-
-export async function fetchProfile(userId: string): Promise<ProfileResponse | null> {
-  try {
-    return await pedir<ProfileResponse>(`/api/profile/${userId}`);
-  } catch (e) {
-    // 404 no es un fallo: es un corredor que todavía no existe.
-    if (e instanceof ApiError && e.status === 404) return null;
-    throw e;
-  }
-}
-
-export function saveProfile(userId: string, perfil: HardProfile) {
-  return pedir<{ ok: boolean; next_voice_question: string | null }>(`/api/profile/${userId}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(perfil),
-  });
-}
-
-export function readWatchScreenshot(userId: string, archivo: File) {
+export function readWatchScreenshot(archivo: File) {
   const form = new FormData();
-  form.append("user_id", userId);
   form.append("file", archivo);
   return pedir<VisionResponse>("/api/vision/workout", { method: "POST", body: form });
 }
 
-export function planCsvUrl(userId: string): string {
-  return `/api/plan/${userId}/export.csv`;
+// ── Telegram ─────────────────────────────────────────────────────────
+
+export interface TelegramLink {
+  /** `null` cuando no hay bot configurado en el servidor. La pantalla lo dice
+   *  en vez de ofrecer un enlace que no lleva a ninguna parte. */
+  deep_link: string | null;
+  expires_in_s: number;
+  configured: boolean;
 }
+
+export function crearEnlaceTelegram() {
+  return pedir<TelegramLink>("/api/telegram/link", { method: "POST" });
+}
+
+export function estadoTelegram() {
+  return pedir<{ linked: boolean; bot_configured: boolean }>("/api/telegram/status");
+}
+
+// ── plan ─────────────────────────────────────────────────────────────
+
+/**
+ * La descarga del CSV no puede ser un `<a href>`: necesita la cabecera del
+ * token y un enlace no la lleva. Se pide, se convierte en blob y se dispara.
+ */
+export async function descargarPlanCsv(): Promise<void> {
+  const r = await fetch("/api/plan/export.csv", {
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+  });
+  if (!r.ok) throw new ApiError("no hay plan que exportar", r.status);
+
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "plan-ritmo.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── formato ──────────────────────────────────────────────────────────
 
 /** «47:18» → 2838. Devuelve null si no se entiende. */
 export function parseDuration(texto: string): number | null {
