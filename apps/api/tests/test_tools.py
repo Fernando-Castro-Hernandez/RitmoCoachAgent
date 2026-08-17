@@ -473,3 +473,33 @@ async def test_sin_contexto_sigue_negandose(db: AsyncSession) -> None:
 
     assert resultado["ok"] is False
     assert "weekly_volume_km" in resultado["needs_context"]
+
+
+@pytest.mark.asyncio
+async def test_el_plan_recien_creado_dice_que_toca_hoy(db: AsyncSession) -> None:
+    """La respuesta trae `today` resuelto, para que el modelo no lo deduzca.
+
+    Sin esto tenía `first_week_km: 8.0` y tres días por semana, y dividía: dijo
+    «2 km» en una corrida y «3 km» en otra con la misma entrada. Una cifra que
+    ningún motor produjo — y en un día que además era de descanso.
+
+    No se arregla instruyendo al modelo: se arregla quitándole el motivo.
+    """
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="10k")
+
+    resultado = await herramientas.create_plan(
+        "u1",
+        distance="10k",
+        weekly_volume_km=7.0,
+        longest_run_km=4.0,
+        reference_pace="7:00",
+        injuries=[],
+        days_per_week=3,
+    )
+
+    assert resultado["ok"] is True
+    hoy = resultado["today"]
+    assert hoy is not None
+    # O es descanso, o trae la distancia del motor. Nunca «deduzca usted».
+    assert hoy.get("rest_day") is True or "distance_km" in hoy

@@ -437,6 +437,16 @@ class CoachTools:
             "peak_volume_km": plan.peak_volume_km,
             "first_week_km": plan.weeks[0].load.total_km,
             "race_date": race_date,
+            # Qué toca HOY, ya resuelto. Va aquí por una razón medida: sin esto,
+            # el modelo tenía `first_week_km: 8.0` y tres días por semana, y
+            # dedujo la sesión de hoy dividiendo. Dijo «2 km» en una corrida y
+            # «3 km» en otra con los mismos datos de entrada — una cifra que
+            # ningún motor produjo. Y encima ese día era de descanso.
+            #
+            # No se arregla pidiéndole al modelo que llame a otra herramienta:
+            # se arregla quitándole el motivo para calcular. Si el dato está
+            # aquí, no hay nada que deducir.
+            "today": await self.get_today_session(user_id),
             "source": "coach_domain.plans.build_plan",
         }
 
