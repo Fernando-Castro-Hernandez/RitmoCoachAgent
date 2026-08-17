@@ -16,6 +16,7 @@ from fastapi import FastAPI
 
 from apps.api.auth_api import router as auth_router
 from apps.api.automation_api import router as automation_router
+from apps.api.config import get_settings
 from apps.api.credentials import ensure_aws_credentials
 from apps.api.debug import router as debug_router
 from apps.api.logging_setup import configure_logging
@@ -65,19 +66,28 @@ def health() -> dict[str, Any]:
 def config() -> dict[str, Any]:
     """Configuración efectiva, sin secretos.
 
-    Sirve para confirmar de un vistazo qué modelo de voz está activo, que es la
-    variable que cambia si la cuenta no tiene cuota para Nova 2 Sonic.
+    **Lee `Settings`, no `os.getenv`.** Es la corrección de un endpoint que
+    mentía: `os.getenv` no ve el archivo `.env`, así que esto informaba «sin
+    configurar» de cosas que sí lo estaban. Un panel de diagnóstico que miente
+    es peor que no tenerlo — se usa justo cuando algo va mal, que es cuando
+    menos se puede permitir despistar.
     """
+    ajustes = get_settings()
     return {
-        "region": os.getenv("AWS_REGION", "us-east-1"),
-        "model_id": os.getenv("NOVA_MODEL_ID", "amazon.nova-2-sonic-v1:0"),
-        "voice_id": os.getenv("NOVA_VOICE_ID", "carlos"),
-        "vision_model_id": os.getenv("VISION_MODEL_ID", "us.amazon.nova-2-lite-v1:0"),
+        "region": ajustes.aws_region,
+        "model_id": ajustes.nova_model_id,
+        "voice_id": ajustes.nova_voice_id,
+        "vision_model_chain": ajustes.vision_models,
         "prompt_version": PROMPT_VERSION,
+        # Éstas sí son del entorno del proceso: las resuelve el SDK de AWS desde
+        # el perfil o el rol de instancia, no desde `.env`.
         "aws_credentials_resolved": bool(os.getenv("AWS_ACCESS_KEY_ID")),
-        "telegram_configured": bool(os.getenv("TELEGRAM_BOT_TOKEN")),
+        "telegram_configured": bool(ajustes.telegram_bot_token and ajustes.telegram_bot_username),
+        "telegram_webhook_configured": bool(ajustes.telegram_webhook_secret),
+        "automation_configured": bool(ajustes.automation_api_key),
+        "vision_configured": bool(ajustes.anthropic_api_key),
         # Sin esto los tokens se firman con un secreto de proceso y reiniciar
         # la API cierra la sesión de todo el mundo. Ver auth.py.
-        "jwt_secret_configured": bool(os.getenv("JWT_SECRET")),
+        "jwt_secret_configured": bool(ajustes.jwt_secret),
         "langfuse_configured": bool(os.getenv("LANGFUSE_PUBLIC_KEY")),
     }

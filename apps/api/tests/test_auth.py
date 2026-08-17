@@ -15,6 +15,7 @@ las cuatro cosas que si se rompen no se nota hasta que es tarde:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -186,18 +187,28 @@ def test_un_token_inventado_no_pasa(cliente: Any) -> None:
     assert r.status_code == 401
 
 
-def test_un_token_firmado_con_otro_secreto_no_pasa(
-    cliente: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """El caso que importa: no basta con que el token esté bien formado."""
-    from apps.api.auth import _secreto
+def test_un_token_firmado_con_otro_secreto_no_pasa(cliente: Any) -> None:
+    """El caso que importa: no basta con que el token esté bien formado.
 
-    monkeypatch.setenv("JWT_SECRET", "otro-secreto-completamente-distinto")
-    _secreto.__globals__["_SECRETO_DE_PROCESO"] = ""
-    ajeno = crear_token("alguien", "alguien@x.com")
+    Se firma para una cuenta que SÍ EXISTE, con otro secreto. Es la única forma
+    de que el 401 pruebe la firma y no otra cosa — una versión anterior de esta
+    prueba firmaba para un usuario inventado, así que el 401 venía de «esa
+    cuenta no existe» y la firma no llegaba a comprobarse nunca.
+    """
+    import jwt as _jwt
 
-    monkeypatch.setenv("JWT_SECRET", "secreto-de-prueba-suficientemente-largo")
-    assert cliente.get("/api/auth/me", headers=_auth(ajeno)).status_code == 401
+    cuenta = _registrar(cliente)
+    ahora = int(datetime.now(UTC).timestamp())
+    falsificado = _jwt.encode(
+        {"sub": cuenta["user"]["id"], "email": CORREO, "iat": ahora, "exp": ahora + 3600},
+        "un-secreto-que-no-es-el-nuestro",
+        algorithm="HS256",
+    )
+
+    # Control: con el token bueno de esa misma cuenta sí se pasa. Sin esto, un
+    # 401 por cualquier otro motivo se leería como éxito.
+    assert cliente.get("/api/auth/me", headers=_auth(cuenta["token"])).status_code == 200
+    assert cliente.get("/api/auth/me", headers=_auth(falsificado)).status_code == 401
 
 
 def test_un_token_de_una_cuenta_borrada_no_pasa(cliente: Any) -> None:

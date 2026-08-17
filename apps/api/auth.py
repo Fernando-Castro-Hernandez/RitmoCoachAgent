@@ -24,16 +24,19 @@ JWT firmado con HS256, siete días de vida. Siete y no un año: el token viaja e
 la URL del WebSocket (los navegadores no dejan poner cabeceras al abrirlo), así
 que acaba en los logs del proxy. Que caduque es lo que acota esa fuga.
 
-El secreto sale de `JWT_SECRET`. **Sin él configurado, la API no arranca en
-producción**: un secreto por defecto significa que cualquiera que lea el
-repositorio puede firmarse un token de cualquier usuario. En desarrollo se
-genera uno al vuelo, con la consecuencia visible de que reiniciar el servidor
-invalida las sesiones — mejor eso que un secreto compartido.
+El secreto sale de `JWT_SECRET`, **leído por `Settings` y no por `os.getenv`**.
+La diferencia no es de estilo: `os.getenv` no ve el archivo `.env`, sólo el
+entorno del proceso. Leyéndolo así, la clave puesta en `.env` se ignoraba en
+silencio y la API firmaba con un secreto efímero — cada reinicio cerraba la
+sesión de todo el mundo y nada lo decía.
+
+Sin secreto configurado se genera uno de proceso, con esa misma consecuencia
+pero ya sin sorpresa: un secreto por defecto en el repositorio significaría que
+cualquiera que lo lea puede firmarse un token de cualquier usuario.
 """
 
 from __future__ import annotations
 
-import os
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -46,6 +49,7 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apps.api.config import get_settings
 from apps.api.db.models import UserRow
 from apps.api.db.session import get_session
 
@@ -71,7 +75,7 @@ class AuthError(HTTPException):
 
 
 def _secreto() -> str:
-    secreto = os.getenv("JWT_SECRET", "")
+    secreto = get_settings().jwt_secret
     if secreto:
         return secreto
     # Sin secreto no se cae en uno por defecto: se genera uno de proceso. La

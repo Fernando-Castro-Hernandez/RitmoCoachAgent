@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     # el endpoint se cierra en vez de abrirse (ver `telegram_api.py`).
     telegram_webhook_secret: str = ""
 
+    # Con lo que se firman los tokens de sesión. Vive aquí y no en os.getenv
+    # porque `os.getenv` NO ve el archivo `.env` — sólo el entorno del proceso.
+    # Estuvo leyéndose así y el resultado era silencioso y malo: la clave puesta
+    # en `.env` se ignoraba y la API firmaba con un secreto efímero, así que
+    # cada reinicio cerraba la sesión de todo el mundo sin que nada lo dijera.
+    jwt_secret: str = ""
+
     # Llave que usa n8n para preguntar a quién le toca un aviso. Esas respuestas
     # llevan datos de salud de personas concretas, así que sin llave el endpoint
     # cierra (503) en vez de caer abierto. Ver `automation_api.py`.
