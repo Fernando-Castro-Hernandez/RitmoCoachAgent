@@ -352,10 +352,25 @@ def test_una_lectura_imposible_se_devuelve_para_corregir(cliente: TestClient) ->
     assert cuerpo["extraction"]["distance_km"] == 42.0
 
 
-def test_el_modelo_de_vision_aparece_en_la_configuracion(cliente: TestClient) -> None:
+def test_la_cadena_de_vision_aparece_en_la_configuracion(cliente: TestClient) -> None:
+    """La que se usa de verdad, no la que había hace dos ADRs.
+
+    Esta prueba afirmaba que la visión usaba `nova-2-lite`. Y pasaba — porque
+    `/api/config` leía `os.getenv("VISION_MODEL_ID", "us.amazon.nova-2-lite…")`
+    y nadie define esa variable, así que informaba un modelo que el sistema
+    dejó de usar en el ADR 0014. La prueba fijaba la ficción en vez de cazarla.
+
+    Ahora la configuración sale de `Settings`, que es de donde sale la cadena
+    real que recorre `ChainVisionClient`.
+    """
     cuerpo = cliente.get("/api/config").json()
-    assert "nova-2-lite" in cuerpo["vision_model_id"]
-    assert cuerpo["model_id"] != cuerpo["vision_model_id"]
+
+    cadena = cuerpo["vision_model_chain"]
+    assert cadena, "la cadena de visión no puede venir vacía"
+    # Voz y visión son modelos distintos y de nubes distintas (ADR 0014): Nova
+    # Sonic sólo acepta SPEECH, así que no puede leer una imagen.
+    assert cuerpo["model_id"] not in cadena
+    assert all("3-5-haiku" not in m for m in cadena), "Claude 3.5 Haiku no acepta imágenes"
 
 
 class ClienteVisionCaido:
