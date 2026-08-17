@@ -1,11 +1,15 @@
 /**
  * La aplicación.
  *
- * Tres puertas, en orden: cuenta, carrusel, hoja.
+ * Dos rutas y tres puertas.
  *
- *   sin token          → Auth
- *   con token, sin carrusel → Onboarding
- *   con token y carrusel    → la hoja
+ *   /      portada. Si ya hay sesión válida, se va sola a /app.
+ *   /app   la aplicación: sin token → Auth, sin carrusel → Onboarding, si no la hoja.
+ *
+ * El enrutado se hace con `history.pushState` y `location.pathname`, sin
+ * librería. Son dos rutas; meter un router de 20 kB para esto sería peso sin
+ * beneficio. Caddy ya devuelve `index.html` para cualquier ruta
+ * (`try_files {path} /index.html`), así que recargar en `/app` funciona.
  *
  * Quién decide la segunda es el SERVIDOR: `onboarded` llega en la respuesta de
  * entrar y de registrarse. Si viviera en `localStorage`, entrar desde otro
@@ -32,6 +36,7 @@ import type { Session } from "./components/SessionField";
 import type { Turn } from "./components/Transcript";
 import { useT } from "./i18n";
 import { Auth } from "./screens/Auth";
+import { Landing } from "./screens/Landing";
 import { Main } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
 import { Upload } from "./screens/Upload";
@@ -43,7 +48,15 @@ import {
   transition,
 } from "./state/voiceMachine";
 
-type Pantalla = "cargando" | "auth" | "onboarding" | "hoja" | "captura";
+type Pantalla = "cargando" | "portada" | "auth" | "onboarding" | "hoja" | "captura";
+
+/** Cambia la URL sin recargar. La portada y la aplicación son sitios
+ *  distintos y el botón de atrás del navegador tiene que notarlo. */
+function irA(ruta: string) {
+  if (window.location.pathname !== ruta) {
+    window.history.pushState({}, "", ruta);
+  }
+}
 
 /**
  * Forzar un estado desde la URL: `?estado=safety-red`, `?estado=listening`…
@@ -80,10 +93,16 @@ function estadoForzado() {
   };
 }
 
-/* Plan de ejemplo. Ya NO es lo normal: se usa sólo mientras `GET /api/today`
-   responde, y para el corredor que todavía no tiene plan. En cuanto llega el
-   dato real, el sello MUESTRA desaparece — porque a partir de ahí las cifras
-   sí salieron del motor, que es la única condición para quitarlo. */
+/* Plan de ejemplo. **Sólo para el guion de capturas** (`?estado=…`), nunca
+   para un corredor de verdad.
+
+   Antes se usaba como respaldo cuando `/api/today` no traía plan, y el efecto
+   era el peor posible: una cuenta recién creada veía «semana 7 de 16, maratón,
+   faltan 70 días» — el historial de otra persona, presentado como suyo. En un
+   producto que promete que toda cifra viene del motor, ninguna de ésas venía.
+
+   Ahora sin plan se enseña el estado real: la meta elegida y de dónde saldrá
+   el plan. Menos vistoso, y cierto. */
 const CTX_DEMO: WeekContext = {
   week: 7,
   totalWeeks: 16,
@@ -112,6 +131,7 @@ export default function App() {
   const [hoja, setHoja] = useState<TodaySheet | null>(null);
   const [ttfa, setTtfa] = useState<number | null>(null);
   const forzado = useState(estadoForzado)[0];
+  const [modoAuth, setModoAuth] = useState<"entrar" | "crear">("entrar");
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -124,25 +144,45 @@ export default function App() {
   // primera acción de verdad es peor que descubrirlo al arrancar.
   useEffect(() => {
     let vivo = true;
+    const enLaPortada = window.location.pathname === "/";
+
     if (!getToken()) {
-      setPantalla(forzado.pantalla ?? "auth");
+      // Sin sesión: la portada se queda, y /app manda a la entrada.
+      setPantalla(forzado.pantalla ?? (enLaPortada ? "portada" : "auth"));
       return;
     }
+
     me()
       .then((r) => {
         if (!vivo) return;
+        // Con sesión válida, la portada no aporta nada: se pasa a /app sola.
+        // Es lo que pidió el enunciado y también lo sensato — quien ya entró no
+        // quiere leer otra vez qué es esto.
+        irA("/app");
         setPantalla(forzado.pantalla ?? (r.onboarded ? "hoja" : "onboarding"));
       })
       .catch(() => {
         // `pedir` ya limpia el token y recarga ante un 401. Si se llega aquí es
-        // otra cosa —backend caído, red— y la entrada es el sitio honesto donde
+        // otra cosa —backend caído, red— y la portada es el sitio honesto donde
         // esperar: no hay datos que enseñar sin servidor.
-        if (vivo) setPantalla(forzado.pantalla ?? "auth");
+        if (vivo) setPantalla(forzado.pantalla ?? (enLaPortada ? "portada" : "auth"));
       });
     return () => {
       vivo = false;
     };
   }, [forzado.pantalla]);
+
+  // El botón de atrás del navegador. Sin esto, volver desde /app deja la URL en
+  // «/» y la aplicación pintada: la barra de direcciones miente.
+  useEffect(() => {
+    const alNavegar = () => {
+      const enLaPortada = window.location.pathname === "/";
+      if (enLaPortada) setPantalla("portada");
+      else if (!getToken()) setPantalla("auth");
+    };
+    window.addEventListener("popstate", alNavegar);
+    return () => window.removeEventListener("popstate", alNavegar);
+  }, []);
 
   const enviarEvento = useCallback((evento: VoiceEvent) => {
     setMaquina((m) => transition(m, evento));
@@ -231,7 +271,14 @@ export default function App() {
   };
 
   const entrar = (sesion: Sesion) => {
+    irA("/app");
     setPantalla(sesion.onboarded ? "hoja" : "onboarding");
+  };
+
+  const desdeLaPortada = (modo: "entrar" | "crear") => {
+    irA("/app");
+    setModoAuth(modo);
+    setPantalla("auth");
   };
 
   // La hoja se carga cuando se entra a ella, y se vuelve a cargar al volver de
@@ -265,8 +312,17 @@ export default function App() {
     );
   }
 
+  if (pantalla === "portada") {
+    return (
+      <Landing
+        onEnter={() => desdeLaPortada("entrar")}
+        onCreate={() => desdeLaPortada("crear")}
+      />
+    );
+  }
+
   if (pantalla === "auth") {
-    return <Auth onReady={entrar} />;
+    return <Auth onReady={entrar} modoInicial={modoAuth} />;
   }
 
   if (pantalla === "onboarding") {
@@ -295,11 +351,18 @@ export default function App() {
 
   return (
     <Main
-        ctx={hoja?.week ?? CTX_DEMO}
+        /* Con `?estado=…` se pintan los datos de ejemplo, que es para lo que
+           existen. Sin él manda `/api/today`, y si no hay plan se enseña que no
+           lo hay — nunca el plan de otra persona. */
+        ctx={forzado.pantalla || forzado.voice || forzado.safety ? CTX_DEMO : hoja?.week ?? null}
+        goal={hoja?.goal}
+        hasPlan={hoja?.has_plan ?? true}
         session={
-          hoja
-            ? hoja.session && { ...hoja.session, why: hoja.session.why || t("demoWhy") }
-            : { ...SESION_DEMO, why: t("demoWhy") }
+          forzado.pantalla || forzado.voice || forzado.safety
+            ? { ...SESION_DEMO, why: t("demoWhy") }
+            : hoja?.session
+              ? { ...hoja.session, why: hoja.session.why || t("demoWhy") }
+              : null
         }
         safety={forzado.safety ?? safety}
         referral={hoja?.referral ?? t("demoReferral")}
@@ -323,7 +386,10 @@ export default function App() {
          cuanto `/api/today` responde con un plan, desaparece — y si el corredor
          aún no tiene plan, se queda, porque entonces sí es un ejemplo. La regla
          2 del producto es que toda cifra viene del motor y SE NOTA. */
-      specimen={!hoja?.has_plan}
+      /* El sello MUESTRA es del guion de capturas. En la aplicación de verdad
+         no hace falta: sin plan ya no se enseña un ejemplo que haya que
+         desmentir, se enseña que no hay plan. */
+      specimen={Boolean(forzado.pantalla || forzado.voice || forzado.safety)}
     />
   );
 }

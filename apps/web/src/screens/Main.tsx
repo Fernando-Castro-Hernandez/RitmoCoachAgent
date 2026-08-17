@@ -23,14 +23,24 @@ import {
   SafetyKey,
   type WeekContext,
 } from "../components/Sheet";
-import { RestField, type Session, SessionField, WhyNote } from "../components/SessionField";
+import {
+  NoPlanField,
+  RestField,
+  type Session,
+  SessionField,
+  WhyNote,
+} from "../components/SessionField";
 import { Transcript, type Turn } from "../components/Transcript";
 import { VoiceOrb } from "../components/VoiceOrb";
 import { useT } from "../i18n";
 import type { VoiceState } from "../state/voiceMachine";
 
 interface Props {
-  ctx: WeekContext;
+  ctx: WeekContext | null;
+  /** La meta elegida. Se enseña mientras no hay plan. */
+  goal?: string;
+  /** Si el motor ya generó un plan para este corredor. */
+  hasPlan?: boolean;
   session: Session | null;
   safety: Safety;
   referral: string;
@@ -51,6 +61,8 @@ interface Props {
 
 export function Main({
   ctx,
+  goal,
+  hasPlan = true,
   session,
   safety,
   referral,
@@ -89,7 +101,7 @@ export function Main({
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:divide-x lg:divide-ink-15">
         {/* Columna izquierda en escritorio: la estructura. */}
         <div className="min-h-0 lg:overflow-y-auto">
-          <ContextStrip ctx={ctx} />
+          <ContextStrip ctx={ctx} goal={goal} />
 
           {specimen && safety !== "flag" && (
             <p className="flex items-center gap-3 border-b border-ink-15 px-4 py-2 text-[0.8125rem] text-ink-70">
@@ -107,8 +119,10 @@ export function Main({
               <SessionField session={session} />
               <WhyNote why={session.why} />
             </>
-          ) : (
+          ) : hasPlan ? (
             <RestField why={t("restWhy")} />
+          ) : (
+            <NoPlanField title={t("noPlanTitle")} why={t("noPlanWhy")} />
           )}
 
           <div className="flex items-stretch justify-between border-b border-ink-15">

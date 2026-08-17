@@ -74,8 +74,30 @@ const FASE: Record<WeekContext["phase"], TextKey> = {
   taper: "phaseTaper",
 };
 
-export function ContextStrip({ ctx }: { ctx: WeekContext }) {
+/**
+ * La tira de contexto, o el estado de «todavía no hay plan».
+ *
+ * `ctx` puede ser null y eso NO es un caso raro: es el primer minuto de cada
+ * corredor. Antes se caía a un ejemplo con «semana 7 de 16, maratón, faltan 70
+ * días», y una cuenta recién creada veía el historial de otra persona como si
+ * fuera suyo. Es de los peores fallos posibles en un producto de salud: la
+ * regla 2 dice que toda cifra viene del motor, y ahí ninguna venía.
+ *
+ * Sin plan se enseña la meta que el corredor eligió y se dice de dónde saldrá
+ * el plan. Menos vistoso, y cierto.
+ */
+export function ContextStrip({ ctx, goal }: { ctx: WeekContext | null; goal?: string }) {
   const { t } = useT();
+
+  if (!ctx) {
+    return (
+      <section className="grid grid-cols-[auto_1fr] divide-x divide-ink-15 border-b border-ink-15">
+        <Field label={t("goal")}>{goal || "—"}</Field>
+        <Field label={t("plan")}>{t("planPending")}</Field>
+      </section>
+    );
+  }
+
   return (
     <section className="grid grid-cols-[auto_auto_1fr] divide-x divide-ink-15 border-b border-ink-15">
       <Field label={t("week")}>

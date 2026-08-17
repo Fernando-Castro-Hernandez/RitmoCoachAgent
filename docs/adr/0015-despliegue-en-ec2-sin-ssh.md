@@ -27,8 +27,16 @@ desde el primer minuto, y aquí no hay superficie donde intentarlo.
 
 El rol `ritmo-ec2` puede hacer exactamente tres cosas:
 
-- `bedrock:InvokeModelWithBidirectionalStream` sobre **los dos ARN de Nova
-  Sonic**, no sobre `bedrock:*` ni sobre `*`.
+- `bedrock:InvokeModelWithBidirectionalStream` **y `bedrock:InvokeModel`** sobre
+  **los dos ARN de Nova Sonic**, no sobre `bedrock:*` ni sobre `*`.
+
+  Lo de `InvokeModel` es un hallazgo, no un descuido. Con sólo la acción
+  bidireccional, `start()` abre el stream y **el primer evento de vuelta es un
+  `AccessDeniedException`**. Y lo desconcertante: `iam simulate-principal-policy`
+  decía `allowed` para la acción bidireccional sobre ese ARN exacto, así que la
+  simulación no basta para creerse que un permiso está completo. Se probó
+  quitando `InvokeModelWithResponseStream` para confirmar que con dos acciones
+  alcanza; el recurso sigue acotado a los dos modelos de voz.
 - `s3:GetObject` sobre **un objeto**: `ritmo-deploy-.../ritmo.tar.gz`.
 - Lo que trae `AmazonSSMManagedInstanceCore`, que es lo que hace posible el
   punto 1.

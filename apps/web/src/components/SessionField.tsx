@@ -81,6 +81,25 @@ export function WhyNote({ why }: { why: string }) {
   );
 }
 
+/**
+ * Todavía no hay plan. NO es lo mismo que un día de descanso.
+ *
+ * Se separan a propósito: «hoy descansas» es una prescripción del motor —
+ * descansar es parte del plan— y «aún no tienes plan» es la ausencia de
+ * cualquier prescripción. Enseñar lo primero cuando pasa lo segundo le dice a
+ * alguien recién llegado que su entrenamiento de hoy es descansar, y nadie ha
+ * decidido eso.
+ */
+export function NoPlanField({ title, why }: { title: string; why: string }) {
+  return (
+    <section className="border-b border-ink-15 px-4 pt-5 pb-6">
+      <h2 className="label">{title}</h2>
+      <p className="mt-3 max-w-prose text-[0.9375rem] text-ink-70">{why}</p>
+    </section>
+  );
+}
+
+
 export function RestField({ why }: { why: string }) {
   const { t } = useT();
   return (

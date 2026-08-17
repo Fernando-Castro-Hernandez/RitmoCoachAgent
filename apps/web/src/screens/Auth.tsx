@@ -23,9 +23,17 @@ import { useT } from "../i18n";
  *  gastar un viaje al servidor, no para sustituir su validación. */
 const MIN_CLAVE = 8;
 
-export function Auth({ onReady }: { onReady: (s: Sesion) => void }) {
+export function Auth({
+  onReady,
+  modoInicial = "entrar",
+}: {
+  onReady: (s: Sesion) => void;
+  /** Con qué modo se abre. Quien pulsó «Crear cuenta» en la portada no puede
+   *  aterrizar en «Entrar» y tener que buscar el enlace otra vez. */
+  modoInicial?: "entrar" | "crear";
+}) {
   const { t } = useT();
-  const [modo, setModo] = useState<"entrar" | "crear">("entrar");
+  const [modo, setModo] = useState<"entrar" | "crear">(modoInicial);
   const [email, setEmail] = useState("");
   const [clave, setClave] = useState("");
   const [error, setError] = useState("");

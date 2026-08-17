@@ -215,6 +215,9 @@ export function estadoTelegram() {
 // ── la hoja ──────────────────────────────────────────────────────────
 
 export interface TodaySheet {
+  /** La meta que eligió el corredor, ya legible. Viaja con plan y sin él: es lo
+   *  que la hoja enseña mientras el motor no ha generado nada. */
+  goal: string;
   /** Ya traducido al vocabulario de la interfaz: clear / caution / flag. */
   safety: "clear" | "caution" | "flag";
   safety_reason: string;

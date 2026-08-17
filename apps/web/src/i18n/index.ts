@@ -136,6 +136,44 @@ const es = {
   demoReferral:
     "Eso que sientes merece que lo revise un profesional antes de que sigamos. No voy a darte entrenamiento hasta que lo veas.",
 
+  // ── portada ──────────────────────────────────────────────────────
+  formCodeLanding: "FORMULARIO RIT-00",
+  landingTitle: "Un entrenador que te escucha y no se inventa los números.",
+  landingSub:
+    "Ritmo es un coach de running por voz, en tiempo real, de 5K a maratón. Le hablas como a una persona; los kilómetros y los ritmos los calcula un motor determinista, no el modelo.",
+  landingCreate: "Crear cuenta",
+  landingEnter: "Iniciar sesión",
+  landingSampleLabel: "Así se ve tu sesión de hoy",
+  landingSampleWhy:
+    "Datos de ejemplo, y por eso lleva el sello. Dentro, cada cifra sale del motor y la pantalla lo dice cuando no.",
+  landingR1: "Hablas, no escribes",
+  landingR1Body:
+    "Voz bidireccional de verdad: puedes interrumpirlo a media frase y te escucha. Está pensado para usarse con el teléfono en el bolsillo, antes de salir a correr y al volver.",
+  landingR2: "Los números vienen de un motor, no del modelo",
+  landingR2Body:
+    "Distancias, ritmos y progresión los calcula un motor determinista con ocho reglas escritas y auditables. El modelo redacta y conversa; no calcula. Si no tiene el dato, lo pregunta.",
+  landingR3: "Sabe cuándo callarse",
+  landingR3Body:
+    "Una puerta de seguridad se evalúa antes de que el coach diga una palabra. Si reportas dolor persistente o una señal de alarma, deja de prescribir entrenamiento y te manda con un profesional — y no es el prompt quien lo decide: el código le quita las herramientas.",
+  landingNotMedical:
+    "Ritmo no diagnostica ni sustituye a un profesional de la salud. Es un filtro conservador que decide cuándo un coach automático debe callarse.",
+  landingFooter: "PRUEBA TÉCNICA · ADIVOR",
+
+  fixFields: "Corrige lo marcado para seguir",
+  otherDistance: "Otra distancia",
+  otherDistanceSub: "la que tú quieras",
+  otherDistanceLabel: "¿Cuántos kilómetros?",
+  nearestTemplate: "Te prepararé con el plan de {plan}, que es el más cercano de los que el motor tiene validados.",
+  badNumber: "Sólo números. Por ejemplo: 10 o 10.5",
+  badTime: "Formato mm:ss o hh:mm:ss. Por ejemplo: 50:00",
+  refNeedsBoth: "Hacen falta los dos para calcular tu ritmo, o ninguno.",
+  goal: "Meta",
+  plan: "Plan",
+  planPending: "Sale de la conversación",
+  noPlanTitle: "Todavía no hay plan",
+  noPlanWhy:
+    "Toca el orbe y cuéntame de dónde partes. Con eso el motor arma el plan — y cada cifra que veas aquí saldrá de él.",
+
   // ── cuentas ──────────────────────────────────────────────────────
   formCodeAuth: "FORMULARIO RIT-01 · ALTA",
   authEmail: "Correo",
@@ -156,7 +194,6 @@ const es = {
   tgWhy: "Te escribo la sesión del día por la mañana y te busco si algo va mal.",
   tgConnect: "Conectar Telegram",
   tgOpening: "Abriendo Telegram…",
-  tgExpires: "El enlace vale quince minutos y se usa una vez.",
   tgLinked: "CONECTADO",
   tgLinkedWhy: "Ya te escribo por aquí. Puedes silenciarme desde Telegram cuando quieras.",
   tgNoBot: "El canal de Telegram no está disponible en este servidor.",
@@ -278,6 +315,43 @@ const en: Dict = {
   demoReferral:
     "What you are describing deserves a professional look before we carry on. I am not giving you training until you get it checked.",
 
+  formCodeLanding: "FORM RIT-00",
+  landingTitle: "A coach that listens to you and does not make the numbers up.",
+  landingSub:
+    "Ritmo is a real-time voice running coach, from 5K to marathon. You talk to it like a person; the kilometres and paces are worked out by a deterministic engine, not by the model.",
+  landingCreate: "Create account",
+  landingEnter: "Sign in",
+  landingSampleLabel: "This is what today looks like",
+  landingSampleWhy:
+    "Sample data, which is why it carries the stamp. Inside, every figure comes from the engine and the screen says so when it does not.",
+  landingR1: "You talk, you do not type",
+  landingR1Body:
+    "Real bidirectional voice: you can cut in mid-sentence and it listens. Built to be used with the phone in your pocket, before a run and after it.",
+  landingR2: "The numbers come from an engine, not the model",
+  landingR2Body:
+    "Distances, paces and progression are computed by a deterministic engine with eight written, auditable rules. The model talks; it does not calculate. If it lacks a figure, it asks.",
+  landingR3: "It knows when to stop talking",
+  landingR3Body:
+    "A safety gate is evaluated before the coach says a word. If you report persistent pain or a red flag, it stops prescribing training and refers you to a professional — and the prompt does not decide that: the code takes the tools away.",
+  landingNotMedical:
+    "Ritmo does not diagnose and is not a substitute for a health professional. It is a conservative filter that decides when an automated coach should stop talking.",
+  landingFooter: "TECHNICAL TEST · ADIVOR",
+
+  fixFields: "Fix what is marked to continue",
+  otherDistance: "Another distance",
+  otherDistanceSub: "whichever you like",
+  otherDistanceLabel: "How many kilometres?",
+  nearestTemplate: "I will prepare you with the {plan} plan, the closest one the engine has validated.",
+  badNumber: "Numbers only. For example: 10 or 10.5",
+  badTime: "Format mm:ss or hh:mm:ss. For example: 50:00",
+  refNeedsBoth: "I need both to work out your pace, or neither.",
+  goal: "Goal",
+  plan: "Plan",
+  planPending: "Comes out of the conversation",
+  noPlanTitle: "No plan yet",
+  noPlanWhy:
+    "Tap the orb and tell me where you are starting from. The engine builds the plan from that — and every figure you see here will come from it.",
+
   formCodeAuth: "FORM RIT-01 · SIGN UP",
   authEmail: "Email",
   authPassword: "Password",
@@ -296,7 +370,6 @@ const en: Dict = {
   tgWhy: "I send you the day's session in the morning, and I check on you if something is off.",
   tgConnect: "Connect Telegram",
   tgOpening: "Opening Telegram…",
-  tgExpires: "The link lasts fifteen minutes and works once.",
   tgLinked: "CONNECTED",
   tgLinkedWhy: "I write to you here now. You can mute me from Telegram whenever you want.",
   tgNoBot: "The Telegram channel is not available on this server.",

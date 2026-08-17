@@ -35,7 +35,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.auth import UsuarioActual
-from apps.api.db.repo import LogRepo, StateRepo
+from apps.api.db.repo import LogRepo, ProfileRepo, StateRepo
 from apps.api.db.session import get_session
 from apps.api.tools import CoachTools
 
@@ -57,8 +57,14 @@ async def hoja_de_hoy(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
     veredicto = await LogRepo(sesion).current_safety(usuario.id, hoy)
     semana = await herramientas.get_week_context(usuario.id)
     plan = await StateRepo(sesion).get(usuario.id)
+    perfil = await ProfileRepo(sesion).context(usuario.id)
 
     respuesta: dict[str, Any] = {
+        # La meta que ELIGIÓ este corredor. Viaja siempre, con plan o sin él:
+        # es lo que la pantalla enseña mientras no hay plan, en vez de un
+        # ejemplo. Un corredor nuevo tiene que verse a sí mismo desde el primer
+        # segundo, no a otro.
+        "goal": _nombre_de_carrera((perfil or {}).get("goal_distance") or ""),
         "safety": _SEMAFORO.get(veredicto.level.value, "clear"),
         "safety_reason": veredicto.reason,
         "referral": veredicto.referral_message,
@@ -105,8 +111,12 @@ async def hoja_de_hoy(sesion: Sesion, usuario: UsuarioActual) -> dict[str, Any]:
 
 
 def _nombre_de_carrera(distancia: str) -> str:
+    """El nombre legible de la meta. Devuelve lo que le den si no la conoce —
+    una distancia personalizada se enseña tal cual, no como «desconocida»."""
+    if not distancia:
+        return ""
     return {"5k": "5K", "10k": "10K", "21k": "Medio maratón", "42k": "Maratón"}.get(
-        distancia, distancia
+        distancia, distancia.upper()
     )
 
 

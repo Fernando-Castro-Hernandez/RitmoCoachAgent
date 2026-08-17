@@ -86,7 +86,6 @@ export function TelegramLink() {
           >
             {pidiendo ? t("tgOpening") : t("tgConnect")}
           </button>
-          <p className="label mt-2">{t("tgExpires")}</p>
         </>
       )}
 

@@ -227,7 +227,19 @@ class NovaBridge:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                yield BridgeEvent("error", {"message": str(exc)})
+                # El tipo va SIEMPRE, y el traza al log.
+                #
+                # Antes se mandaba sólo `str(exc)`, y las excepciones del CRT
+                # llegan sin mensaje: el navegador recibía
+                # `{"type":"error","message":""}` y no había forma de saber si
+                # era la red, las credenciales o el modelo. Un error vacío es
+                # peor que ninguno — parece que no pasó nada.
+                log.exception("bridge.stream_roto", tipo=type(exc).__name__)
+                detalle = str(exc) or repr(exc)
+                yield BridgeEvent(
+                    "error",
+                    {"message": f"{type(exc).__name__}: {detalle}", "kind": type(exc).__name__},
+                )
                 return
 
             if resultado is None or resultado.value is None or resultado.value.bytes_ is None:

@@ -41,8 +41,55 @@ const METAS = [
   { id: "42k", km: "42.2 km" },
 ] as const;
 
+/* ── validación ──────────────────────────────────────────────────────
+ *
+ * Se valida aquí y NO sólo en el backend por una razón de producto: el
+ * carrusel guarda una vez, al final. Sin esto, alguien teclea «cincuenta
+ * minutos» en el tiempo de referencia, avanza cinco pasos, y descubre el
+ * problema al pulsar «Terminar» — con el dato ya olvidado y el error lejos del
+ * campo que lo causó.
+ *
+ * Lo que NO cambia: el backend valida igual. Esto no es la comprobación, es la
+ * cortesía de decirlo a tiempo. */
+
+/** Un número positivo. Acepta coma o punto, que es como se escribe en español. */
+export function esNumero(v: string): boolean {
+  return /^\d+([.,]\d+)?$/.test(v.trim()) && Number(v.replace(",", ".")) > 0;
+}
+
+/** `mm:ss` o `hh:mm:ss`, con los minutos y segundos dentro de rango.
+ *
+ * `50:00` es válido y `50:99` no: un tiempo con 99 segundos no existe, y
+ * aceptarlo produce un ritmo mal calculado que nadie va a cuestionar después. */
+export function esTiempo(v: string): boolean {
+  return /^\d{1,3}:[0-5]\d$/.test(v.trim()) || /^\d{1,2}:[0-5]\d:[0-5]\d$/.test(v.trim());
+}
+
+/** La plantilla de las cuatro que más se acerca a los km escritos.
+ *
+ * El motor valida cuatro planes, no una fórmula genérica: cada uno tiene su
+ * progresión, su tirada larga y su descarga probadas. Se elige el más cercano
+ * y **se dice cuál**, en vez de fabricar una plantilla nueva sin validar para
+ * que el formulario quede bonito.
+ */
+export function plantillaMasCercana(km: string): string {
+  const n = Number(km.replace(",", "."));
+  const CANDIDATAS: [string, number][] = [
+    ["5k", 5],
+    ["10k", 10],
+    ["21k", 21.1],
+    ["42k", 42.2],
+  ];
+  return CANDIDATAS.reduce((mejor, actual) =>
+    Math.abs(actual[1] - n) < Math.abs(mejor[1] - n) ? actual : mejor,
+  )[0];
+}
+
 interface Borrador {
   goal_distance?: string;
+  /** Los km que escribió si eligió «otra distancia». Se usa para elegir la
+   *  plantilla más cercana, no para inventar una nueva. */
+  goal_custom?: string;
   race_date?: string;
   days_per_week?: number;
   age?: string;
@@ -120,7 +167,21 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
 
   const paso = PASOS[i];
   const ultimo = i === PASOS.length - 1;
-  const puedeAvanzar = paso !== "goal" || Boolean(d.goal_distance);
+  // El paso de referencia es opcional, pero lo que se escriba tiene que ser
+  // válido: vacío sí, basura no.
+  const refDistanciaMal = Boolean(d.ref_distance?.trim()) && !esNumero(d.ref_distance!);
+  const refTiempoMal = Boolean(d.ref_time?.trim()) && !esTiempo(d.ref_time!);
+  // Un tiempo sin distancia (o al revés) no permite calcular ningún ritmo, así
+  // que se piden los dos o ninguno.
+  const refIncompleta =
+    Boolean(d.ref_distance?.trim()) !== Boolean(d.ref_time?.trim());
+
+  const puedeAvanzar =
+    paso === "goal"
+      ? Boolean(d.goal_distance)
+      : paso === "ref"
+        ? !refDistanciaMal && !refTiempoMal && !refIncompleta
+        : true;
 
   const construir = (): HardProfile => {
     const seg = d.ref_time ? parseDuration(d.ref_time) : null;
@@ -179,13 +240,55 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
               {METAS.map((m) => (
                 <Casilla
                   key={m.id}
-                  selected={d.goal_distance === m.id}
-                  onClick={() => setD({ ...d, goal_distance: m.id })}
+                  selected={d.goal_distance === m.id && !d.goal_custom}
+                  onClick={() => setD({ ...d, goal_distance: m.id, goal_custom: undefined })}
                   sub={m.km}
                 >
                   {m.id.toUpperCase()}
                 </Casilla>
               ))}
+
+              <Casilla
+                selected={Boolean(d.goal_custom)}
+                onClick={() => setD({ ...d, goal_custom: d.goal_custom ?? "" })}
+                sub={t("otherDistanceSub")}
+              >
+                {t("otherDistance")}
+              </Casilla>
+
+              {d.goal_custom !== undefined && (
+                <div className="border-l-2 border-ink-15 pt-2 pl-4">
+                  <Entrada
+                    label={t("otherDistanceLabel")}
+                    suffix="km"
+                    inputMode="decimal"
+                    placeholder="15"
+                    value={d.goal_custom}
+                    onChange={(e) => {
+                      const km = e.target.value;
+                      setD({
+                        ...d,
+                        goal_custom: km,
+                        // La plantilla más cercana se elige AL ESCRIBIR, no al
+                        // guardar: así el aviso de abajo cambia mientras se
+                        // teclea y nadie llega al final con una sorpresa.
+                        goal_distance: esNumero(km) ? plantillaMasCercana(km) : undefined,
+                      });
+                    }}
+                  />
+                  {d.goal_custom.trim() !== "" && !esNumero(d.goal_custom) && (
+                    <p className="label mt-2 !text-caution">{t("badNumber")}</p>
+                  )}
+                  {d.goal_distance && esNumero(d.goal_custom) && (
+                    /* Se dice qué plan va a recibir. El motor tiene cuatro
+                       plantillas validadas y no inventa una quinta; callarlo
+                       sería prometer algo que no existe. */
+                    <p className="mt-2 text-[0.875rem] text-ink-70">
+                      {t("nearestTemplate", { plan: d.goal_distance.toUpperCase() })}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="pt-3">
                 <Entrada
                   label={`${t("raceDate")} — ${t("raceDateOptional")}`}
@@ -236,21 +339,30 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
 
           {paso === "ref" && (
             <div className="space-y-6">
-              <Entrada
-                label={t("refDistance")}
-                suffix="km"
-                inputMode="decimal"
-                placeholder="10"
-                value={d.ref_distance ?? ""}
-                onChange={(e) => setD({ ...d, ref_distance: e.target.value })}
-              />
-              <Entrada
-                label={t("refTime")}
-                inputMode="numeric"
-                placeholder="50:00"
-                value={d.ref_time ?? ""}
-                onChange={(e) => setD({ ...d, ref_time: e.target.value })}
-              />
+              <div>
+                <Entrada
+                  label={t("refDistance")}
+                  suffix="km"
+                  inputMode="decimal"
+                  placeholder="10"
+                  value={d.ref_distance ?? ""}
+                  onChange={(e) => setD({ ...d, ref_distance: e.target.value })}
+                />
+                {refDistanciaMal && <p className="label mt-2 !text-caution">{t("badNumber")}</p>}
+              </div>
+              <div>
+                <Entrada
+                  label={t("refTime")}
+                  inputMode="numeric"
+                  placeholder="50:00"
+                  value={d.ref_time ?? ""}
+                  onChange={(e) => setD({ ...d, ref_time: e.target.value })}
+                />
+                {refTiempoMal && <p className="label mt-2 !text-caution">{t("badTime")}</p>}
+              </div>
+              {refIncompleta && !refDistanciaMal && !refTiempoMal && (
+                <p className="label !text-caution">{t("refNeedsBoth")}</p>
+              )}
             </div>
           )}
 
@@ -319,7 +431,11 @@ export function Onboarding({ onDone }: { onDone: (p: HardProfile) => Promise<voi
           </button>
         ) : (
           <p className="label ml-auto flex flex-1 items-center justify-center border-l border-ink-15 px-5 text-center">
-            {t("pickOne")}
+            {/* El aviso dice QUÉ falta en ESTE paso. Antes decía siempre «elige
+                una carrera para seguir», que en el paso del tiempo de
+                referencia es desconcertante: el corredor mira arriba buscando
+                una carrera que ya eligió hace tres pasos. */}
+            {paso === "goal" ? t("pickOne") : t("fixFields")}
           </p>
         )}
       </footer>
