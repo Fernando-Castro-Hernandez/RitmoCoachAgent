@@ -340,7 +340,12 @@ def main() -> int:
     if codigo:
         return codigo
 
-    codigo, salida = ssm(instancia, "bash /opt/ritmo/infra/deploy.sh 2>&1", minutos=25)
+    # 45 y no 25: el despliegue completo tarda unos 37 min en esta instancia
+    # —`npm ci`, la compilación del frontend y la imagen de la API en un ARM
+    # pequeño—, así que con 25 el script se rendía SIEMPRE, en despliegues que
+    # acababan bien. Un aviso que salta cada vez deja de leerse, y entonces ya
+    # no avisa de nada el día que pase algo de verdad.
+    codigo, salida = ssm(instancia, "bash /opt/ritmo/infra/deploy.sh 2>&1", minutos=45)
     print(salida)
     if codigo == 0:
         # El commit va en la línea final a propósito: es la respuesta a «¿qué
