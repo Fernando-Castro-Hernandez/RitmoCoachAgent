@@ -57,6 +57,8 @@ PROHIBIDAS = (
     "AWS_PROFILE",
 )
 
+ARTEFACTO = "s3://ritmo-deploy-602440904865/ritmo.tar.gz"
+
 # Lo que sí necesita el servidor, y sólo eso.
 NECESARIAS = (
     "DB_PASSWORD",
@@ -110,23 +112,30 @@ def _leer(nombre: str) -> str:
 
 def ssm(instancia: str, script: str, minutos: int = 25) -> tuple[int, str]:
     """Ejecuta un script en la instancia y espera. Devuelve (código, salida)."""
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".json", delete=False, encoding="utf-8"
-    ) as f:
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump({"commands": script.splitlines()}, f)
         params = f.name
 
     envio = subprocess.run(
         [
-            "aws", "ssm", "send-command",
-            "--instance-ids", instancia,
-            "--document-name", "AWS-RunShellScript",
-            "--parameters", "file://" + params,
-            "--timeout-seconds", "3600",
-            "--query", "Command.CommandId",
-            "--output", "text",
+            "aws",
+            "ssm",
+            "send-command",
+            "--instance-ids",
+            instancia,
+            "--document-name",
+            "AWS-RunShellScript",
+            "--parameters",
+            "file://" + params,
+            "--timeout-seconds",
+            "3600",
+            "--query",
+            "Command.CommandId",
+            "--output",
+            "text",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if envio.returncode:
         return 1, envio.stderr
@@ -135,10 +144,18 @@ def ssm(instancia: str, script: str, minutos: int = 25) -> tuple[int, str]:
     for _ in range(minutos * 4):
         consulta = subprocess.run(
             [
-                "aws", "ssm", "get-command-invocation",
-                "--command-id", cid, "--instance-id", instancia, "--output", "json",
+                "aws",
+                "ssm",
+                "get-command-invocation",
+                "--command-id",
+                cid,
+                "--instance-id",
+                instancia,
+                "--output",
+                "json",
             ],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if consulta.returncode == 0:
             d = json.loads(consulta.stdout)
@@ -158,14 +175,25 @@ def main() -> int:
     parser.add_argument("--solo-env", action="store_true", help="sólo reescribe el .env remoto")
     args = parser.parse_args()
 
-    instancia = args.instancia or subprocess.run(
-        [
-            "aws", "ec2", "describe-instances",
-            "--filters", "Name=tag:Name,Values=ritmo", "Name=instance-state-name,Values=running",
-            "--query", "Reservations[0].Instances[0].InstanceId", "--output", "text",
-        ],
-        capture_output=True, text=True,
-    ).stdout.strip()
+    instancia = (
+        args.instancia
+        or subprocess.run(
+            [
+                "aws",
+                "ec2",
+                "describe-instances",
+                "--filters",
+                "Name=tag:Name,Values=ritmo",
+                "Name=instance-state-name,Values=running",
+                "--query",
+                "Reservations[0].Instances[0].InstanceId",
+                "--output",
+                "text",
+            ],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
 
     if not instancia or instancia == "None":
         print("No encuentro una instancia en marcha con la etiqueta Name=ritmo.")
@@ -173,10 +201,18 @@ def main() -> int:
 
     ip = subprocess.run(
         [
-            "aws", "ec2", "describe-instances", "--instance-ids", instancia,
-            "--query", "Reservations[0].Instances[0].PublicIpAddress", "--output", "text",
+            "aws",
+            "ec2",
+            "describe-instances",
+            "--instance-ids",
+            instancia,
+            "--query",
+            "Reservations[0].Instances[0].PublicIpAddress",
+            "--output",
+            "text",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
 
     # sslip.io resuelve <ip-con-guiones>.sslip.io a esa IP, así que Let's
@@ -191,15 +227,18 @@ def main() -> int:
         return 1
 
     remoto = env_para_el_servidor(local.read_text(encoding="utf-8"), dominio)
-    claves = [ln.split("=")[0] for ln in remoto.splitlines() if "=" in ln and not ln.startswith("#")]
+    claves = [
+        ln.split("=")[0] for ln in remoto.splitlines() if "=" in ln and not ln.startswith("#")
+    ]
     print("se envían: " + ", ".join(claves))
 
+    # `sh`, no `bash`: SSM ejecuta con el intérprete POSIX y ahí `pipefail` no
+    # existe. Lo dijo un «Illegal option -o pipefail» que no señala de dónde
+    # sale. Los scripts que sí necesitan bash se invocan con bash explícito.
     escribir = (
-        "set -euo pipefail\n"
+        "set -eu\n"
         "install -d -m 755 /opt/ritmo\n"
-        "cat > /opt/ritmo/.env <<'FIN_DEL_ENV'\n"
-        + remoto
-        + "FIN_DEL_ENV\n"
+        "cat > /opt/ritmo/.env <<'FIN_DEL_ENV'\n" + remoto + "FIN_DEL_ENV\n"
         "chmod 600 /opt/ritmo/.env\n"
         "chown root:root /opt/ritmo/.env\n"
         "echo 'env escrito con permisos 600'\n"
@@ -210,6 +249,28 @@ def main() -> int:
         return codigo
     if args.solo_env:
         return 0
+
+    # Traer y extraer va aquí y no en `deploy.sh` por un motivo tonto y real:
+    # `deploy.sh` viaja DENTRO del artefacto, así que no puede ser quien lo
+    # descargue. El `.env` se aparta antes de desempaquetar y se repone después
+    # — no viene en el artefacto y desempaquetar encima no debe perderlo.
+    traer = "\n".join(
+        [
+            "set -eu",
+            "TMP=$(mktemp -d)",
+            "cp -a /opt/ritmo/.env $TMP/.env",
+            f"/usr/local/bin/aws s3 cp {ARTEFACTO} $TMP/ritmo.tar.gz",
+            "tar -xzf $TMP/ritmo.tar.gz -C /opt/ritmo",
+            "cp -a $TMP/.env /opt/ritmo/.env",
+            "chmod 600 /opt/ritmo/.env",
+            "rm -rf $TMP",
+            "echo 'artefacto extraido'",
+        ]
+    )
+    codigo, salida = ssm(instancia, traer, minutos=5)
+    print(salida)
+    if codigo:
+        return codigo
 
     codigo, salida = ssm(instancia, "bash /opt/ritmo/infra/deploy.sh 2>&1", minutos=25)
     print(salida)

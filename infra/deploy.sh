@@ -9,19 +9,28 @@
 #   sudo /opt/ritmo/infra/deploy.sh
 #
 # Espera encontrar `/opt/ritmo/.env` ya escrito. Ese archivo NO viaja en el
-# user-data ni en el repositorio: lo deposita `scripts/deploy_remote.py` por
-# SSM. El user-data se lee desde dentro de la instancia por IMDS, así que
-# cualquier proceso de la caja podría leer lo que se ponga ahí.
+# user-data ni en el artefacto: lo deposita `scripts/deploy_remote.py` por SSM.
+# El user-data se lee desde dentro de la instancia por IMDS, así que cualquier
+# proceso de la caja podría leer lo que se ponga ahí.
+#
+# Tampoco trae el código: cuando esto corre, ya está extraído en /opt/ritmo.
+# Lo trae `deploy_remote.py` desde S3, y no por `git clone` porque el
+# repositorio es privado y la instancia no tiene con qué autenticarse. Las
+# salidas eran hacerlo público, repartir un token de despliegue, o mandar el
+# código por otra vía; se eligió la tercera, que no toca la visibilidad del
+# repositorio —esa decisión no es de un script— ni deja una credencial de
+# GitHub viviendo en un servidor.
+#
+# La descarga vive FUERA de este archivo por una razón tonta y real: este
+# archivo viene dentro del artefacto, así que no puede ser quien lo descargue.
 
 set -euo pipefail
 
 RAIZ=/opt/ritmo
 cd "$RAIZ"
 
-echo "── traer el código ──────────────────────────────────────"
-git fetch --all --prune
-git reset --hard origin/main
-git log --oneline -1
+echo "── código desplegado ────────────────────────────────────"
+test -f "$RAIZ/.env" || { echo "falta /opt/ritmo/.env"; exit 1; }
 
 # El archivo de local no puede existir aquí: monta ~/.aws como volumen y en el
 # servidor las credenciales las da el rol de instancia. Ver su cabecera.

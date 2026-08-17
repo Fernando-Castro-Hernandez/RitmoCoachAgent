@@ -1,19 +1,11 @@
-# Normaliza los finales de línea. Se desarrolla en Windows y se despliega en
-# Linux: un script de shell con CRLF falla en el EC2 con «bad interpreter».
-* text=auto eol=lf
-
-# Archivos que DEBEN tener LF sí o sí.
-*.sh        text eol=lf
-*.py        text eol=lf
-*.yml       text eol=lf
-*.yaml      text eol=lf
+# Normalización de saltos de línea.
+#
+# Los scripts de shell van SIEMPRE con LF, incluso creados en Windows: un `.sh`
+# con CRLF llega al servidor y falla con «$'\r': command not found», que es un
+# error que no dice nada de lo que pasa. Nos costó un despliegue.
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
 Dockerfile* text eol=lf
-Caddyfile   text eol=lf
-Makefile    text eol=lf
-
-# Binarios: que git no los toque.
-*.png binary
-*.jpg binary
-*.gif binary
-*.mp4 binary
-*.ico binary
+Caddyfile text eol=lf

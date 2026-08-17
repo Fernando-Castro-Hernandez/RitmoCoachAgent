@@ -59,6 +59,27 @@ El escalamiento tiene un nodo más: confirma la entrega con `POST /api/automatio
 Un «buenos días» perdido no le cuesta nada a nadie. Un «para de entrenar y que
 te vea alguien» perdido, sí.
 
+## Llegar a n8n en el servidor
+
+En el EC2, n8n escucha **sólo en `127.0.0.1:5678`**. No se publica a propósito:
+su panel dispara los avisos y guarda las credenciales del bot, así que ponerlo
+en internet sería regalar exactamente lo que hay que proteger.
+
+Se llega con un túnel de SSM, que no necesita abrir ningún puerto:
+
+```bash
+INSTANCIA=$(aws ec2 describe-instances \
+  --filters Name=tag:Name,Values=ritmo Name=instance-state-name,Values=running \
+  --query "Reservations[0].Instances[0].InstanceId" --output text)
+
+aws ssm start-session --target "$INSTANCIA" \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["5678"],"localPortNumber":["5678"]}'
+```
+
+Y luego `http://localhost:5678` en el navegador. Requiere el plugin de
+`session-manager` instalado; es lo único de todo el despliegue que lo pide.
+
 ## Importar
 
 1. En n8n: **Workflows → Import from File**, uno por uno.
@@ -69,8 +90,13 @@ te vea alguien» perdido, sí.
    RITMO_AUTOMATION_KEY  el mismo valor de AUTOMATION_API_KEY en el .env de la API
    ```
 
-   El acceso a `$env` desde los nodos requiere `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`
-   en la instancia.
+   En el servidor **ya vienen puestas** por `docker-compose.yml`, junto con
+   `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` — sin esa tercera, n8n bloquea el acceso
+   al entorno desde los nodos y las expresiones se resuelven vacías: el flujo
+   llamaría a `/api/...` sin host y fallaría en silencio.
+
+   `RITMO_API_URL` vale `http://api:8000`: n8n y la API comparten la red de
+   Compose, así que el aviso no sale a internet para volver a entrar.
 
 3. **Volver a elegir la credencial de Telegram** en el nodo «Mandar por
    Telegram» de cada flujo. Los identificadores de credencial son de cada
