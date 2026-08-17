@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -110,55 +111,78 @@ def _leer(nombre: str) -> str:
     return (Path(tempfile.gettempdir()) / nombre).read_text().strip()
 
 
+# El entorno con el que se llama a la CLI de AWS.
+#
+# **Sin esto, consultar el estado de un comando falla en Windows.** La CLI es un
+# programa de Python: al imprimir la salida del comando remoto la codifica con
+# la página de códigos de la consola —cp1252 aquí— y la salida de `deploy.sh`
+# lleva `──`, comillas angulares y acentos. Revienta con
+#
+#   aws: [ERROR]: 'charmap' codec can't encode characters in position 1-2
+#
+# y sale con 255. Nada de eso tiene que ver con el comando remoto, que terminó
+# bien; pero el bucle de espera lo lee como «todavía no se puede consultar» y
+# gira hasta agotarse. **Cada despliegue parecía agotar el tiempo por esto**, y
+# yo llegué a subir la espera de 25 a 45 minutos razonando desde el síntoma
+# equivocado: el despliegue no tardaba de más, la consulta no funcionaba.
+_ENTORNO_UTF8 = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+
+
+def _aws(*args: str) -> tuple[int, str]:
+    """Llama a la CLI y devuelve (código, stdout). Nunca falla al decodificar.
+
+    Se captura en bytes y se decodifica aquí con `errors="replace"`: si se deja
+    a `text=True`, la decodificación usa la codificación del sistema y vuelve el
+    mismo problema por el otro lado.
+    """
+    r = subprocess.run(list(args), capture_output=True, env=_ENTORNO_UTF8)
+    salida = (r.stdout or b"").decode("utf-8", errors="replace")
+    if r.returncode:
+        salida += (r.stderr or b"").decode("utf-8", errors="replace")
+    return r.returncode, salida
+
+
 def ssm(instancia: str, script: str, minutos: int = 25) -> tuple[int, str]:
     """Ejecuta un script en la instancia y espera. Devuelve (código, salida)."""
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump({"commands": script.splitlines()}, f)
         params = f.name
 
-    envio = subprocess.run(
-        [
+    codigo, salida = _aws(
+        "aws",
+        "ssm",
+        "send-command",
+        "--instance-ids",
+        instancia,
+        "--document-name",
+        "AWS-RunShellScript",
+        "--parameters",
+        "file://" + params,
+        "--timeout-seconds",
+        "3600",
+        "--query",
+        "Command.CommandId",
+        "--output",
+        "text",
+    )
+    if codigo:
+        return 1, salida
+
+    cid = salida.strip()
+    for _ in range(minutos * 4):
+        codigo, cruda = _aws(
             "aws",
             "ssm",
-            "send-command",
-            "--instance-ids",
+            "get-command-invocation",
+            "--command-id",
+            cid,
+            "--instance-id",
             instancia,
-            "--document-name",
-            "AWS-RunShellScript",
-            "--parameters",
-            "file://" + params,
-            "--timeout-seconds",
-            "3600",
-            "--query",
-            "Command.CommandId",
             "--output",
-            "text",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if envio.returncode:
-        return 1, envio.stderr
-
-    cid = envio.stdout.strip()
-    for _ in range(minutos * 4):
-        consulta = subprocess.run(
-            [
-                "aws",
-                "ssm",
-                "get-command-invocation",
-                "--command-id",
-                cid,
-                "--instance-id",
-                instancia,
-                "--output",
-                "json",
-            ],
-            capture_output=True,
-            text=True,
+            "json",
         )
-        if consulta.returncode == 0:
-            d = json.loads(consulta.stdout)
+        if codigo == 0:
+            d = json.loads(cruda)
             if d["Status"] in ("Success", "Failed", "Cancelled", "TimedOut"):
                 salida = d.get("StandardOutputContent", "")
                 error = d.get("StandardErrorContent", "")
@@ -196,12 +220,22 @@ def empaquetar_y_subir() -> tuple[int, str]:
     un nombre de commit es lo que hace que la pregunta «¿qué está corriendo
     allá?» tenga respuesta.
     """
-    sucio = subprocess.run(
-        ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=RAIZ
-    ).stdout.strip()
-    commit = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=RAIZ
-    ).stdout.strip()
+
+    # `encoding=` explícito y no `text=True`: un nombre de archivo con acento en
+    # `git status --porcelain` rompería la decodificación por defecto en
+    # Windows, que es exactamente el fallo que se acaba de arreglar en `_aws`.
+    def _git(*args: str) -> str:
+        r = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=RAIZ,
+        )
+        return (r.stdout or "").strip()
+
+    sucio = _git("status", "--porcelain")
+    commit = _git("rev-parse", "--short", "HEAD")
 
     if sucio:
         # No se aborta: a veces hay que desplegar con algo sin commitear. Pero
@@ -212,20 +246,17 @@ def empaquetar_y_subir() -> tuple[int, str]:
     empaque = subprocess.run(
         ["git", "archive", "--format=tar.gz", "-o", str(destino), "HEAD"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=RAIZ,
     )
     if empaque.returncode:
         print("no pude empaquetar: " + empaque.stderr)
         return 1, commit
 
-    subida = subprocess.run(
-        ["aws", "s3", "cp", str(destino), ARTEFACTO, "--only-show-errors"],
-        capture_output=True,
-        text=True,
-    )
-    if subida.returncode:
-        print("no pude subir el artefacto: " + subida.stderr)
+    codigo, salida = _aws("aws", "s3", "cp", str(destino), ARTEFACTO, "--only-show-errors")
+    if codigo:
+        print("no pude subir el artefacto: " + salida)
         return 1, commit
 
     print(f"artefacto subido · {commit} · {destino.stat().st_size // 1024} KiB")
@@ -240,43 +271,35 @@ def main() -> int:
 
     instancia = (
         args.instancia
-        or subprocess.run(
-            [
-                "aws",
-                "ec2",
-                "describe-instances",
-                "--filters",
-                "Name=tag:Name,Values=ritmo",
-                "Name=instance-state-name,Values=running",
-                "--query",
-                "Reservations[0].Instances[0].InstanceId",
-                "--output",
-                "text",
-            ],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        or _aws(
+            "aws",
+            "ec2",
+            "describe-instances",
+            "--filters",
+            "Name=tag:Name,Values=ritmo",
+            "Name=instance-state-name,Values=running",
+            "--query",
+            "Reservations[0].Instances[0].InstanceId",
+            "--output",
+            "text",
+        )[1].strip()
     )
 
     if not instancia or instancia == "None":
         print("No encuentro una instancia en marcha con la etiqueta Name=ritmo.")
         return 1
 
-    ip = subprocess.run(
-        [
-            "aws",
-            "ec2",
-            "describe-instances",
-            "--instance-ids",
-            instancia,
-            "--query",
-            "Reservations[0].Instances[0].PublicIpAddress",
-            "--output",
-            "text",
-        ],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    ip = _aws(
+        "aws",
+        "ec2",
+        "describe-instances",
+        "--instance-ids",
+        instancia,
+        "--query",
+        "Reservations[0].Instances[0].PublicIpAddress",
+        "--output",
+        "text",
+    )[1].strip()
 
     # sslip.io resuelve <ip-con-guiones>.sslip.io a esa IP, así que Let's
     # Encrypt puede emitir un certificado sin comprar dominio. Es lo que hace
@@ -340,12 +363,12 @@ def main() -> int:
     if codigo:
         return codigo
 
-    # 45 y no 25: el despliegue completo tarda unos 37 min en esta instancia
-    # —`npm ci`, la compilación del frontend y la imagen de la API en un ARM
-    # pequeño—, así que con 25 el script se rendía SIEMPRE, en despliegues que
-    # acababan bien. Un aviso que salta cada vez deja de leerse, y entonces ya
-    # no avisa de nada el día que pase algo de verdad.
-    codigo, salida = ssm(instancia, "bash /opt/ritmo/infra/deploy.sh 2>&1", minutos=45)
+    # 30 min de margen sobre un despliegue que tarda minutos. Llegué a poner 45
+    # creyendo que tardaba 37 —lo deduje de que la espera se agotaba siempre— y
+    # era falso: lo que fallaba era la CONSULTA de estado, por la codificación
+    # de la consola. Ver `_ENTORNO_UTF8`. Arreglada aquella, este número vuelve
+    # a ser lo que debe ser: un margen, no una tirita.
+    codigo, salida = ssm(instancia, "bash /opt/ritmo/infra/deploy.sh 2>&1", minutos=30)
     print(salida)
     if codigo == 0:
         # El commit va en la línea final a propósito: es la respuesta a «¿qué

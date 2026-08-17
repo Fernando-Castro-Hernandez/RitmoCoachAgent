@@ -160,3 +160,43 @@ def test_agotar_la_espera_no_se_confunde_con_un_fallo() -> None:
     fuente = (RAIZ / "scripts" / "deploy_remote.py").read_text(encoding="utf-8")
     assert "SIGUE CORRIENDO" in fuente
     assert "get-command-invocation" in fuente
+
+
+def test_la_cli_de_aws_se_llama_forzando_utf8() -> None:
+    """El fallo más caro de todos, y el más tonto.
+
+    La CLI de AWS es un programa de Python. Al imprimir la salida del comando
+    remoto la codificaba con la página de códigos de la consola de Windows, y
+    la salida de `deploy.sh` lleva `──`, comillas angulares y acentos: reventaba
+    con «'charmap' codec can't encode» y salía con 255.
+
+    El comando remoto había terminado bien. Pero el bucle que consulta el estado
+    leía ese 255 como «todavía no se puede consultar» y giraba hasta agotarse,
+    así que **todos los despliegues terminaban anunciando que se había agotado
+    la espera**. Llegué a subir el tiempo de espera de 25 a 45 minutos
+    razonando desde ese síntoma, que era falso de principio a fin.
+
+    Verificado a mano: la misma llamada da 255 sin `PYTHONIOENCODING` y 0 con él.
+    """
+    fuente = (RAIZ / "scripts" / "deploy_remote.py").read_text(encoding="utf-8")
+    assert "PYTHONIOENCODING" in fuente
+    assert "PYTHONUTF8" in fuente
+    # Y ninguna llamada a la CLI se salta el envoltorio.
+    assert "subprocess.run(list(args)" in fuente, "hay una llamada que no pasa por _aws"
+    assert fuente.count('"aws",\n') >= 2, "las llamadas se arman por lista, no por cadena"
+
+
+def test_ninguna_llamada_a_la_cli_decodifica_con_la_del_sistema() -> None:
+    """`text=True` decodifica con la codificación del sistema y devuelve el
+    mismo problema por el otro lado. Se captura en bytes y se decodifica aquí."""
+    fuente = (RAIZ / "scripts" / "deploy_remote.py").read_text(encoding="utf-8")
+
+    # Se ignoran las menciones entre acentos graves: los comentarios que
+    # EXPLICAN por qué no se usa `text=True` contienen la cadena, y buscarla a
+    # secas hacía fallar la prueba contra el código ya arreglado. Tercera vez
+    # que me pasa lo mismo — buscar una palabra encuentra la prosa que habla de
+    # ella, no sólo el código que la usa.
+    usos = [ln for ln in fuente.splitlines() if "text=True" in ln and "`text=True`" not in ln]
+    assert not usos, f"quedan llamadas con la codificación del sistema: {usos}"
+    assert 'decode("utf-8", errors="replace")' in fuente
+    assert 'errors="replace"' in fuente
