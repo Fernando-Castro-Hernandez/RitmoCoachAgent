@@ -1,35 +1,40 @@
 /**
- * El isotipo de Ritmo, en vectores.
+ * El isotipo de Ritmo: la R en forma de rayo.
  *
- * ## Por qué esto no es un `<img src="logo.svg">`
+ * ## Por qué va en línea y no como `<img src="logo.svg">`
  *
- * El SVG original (`public/assets/LOGO  RITMO COUCH FER.svg`) **no se puede
- * servir tal cual**, y el motivo tardaría en notarse: la palabra «ITMO» va como
- * `<text>` vivo en *Lorimer No 2 Condensed*, una fuente comercial que no está
- * en el repositorio ni se puede empaquetar. En la máquina del diseñador se ve
- * perfecta; en cualquier otra, el navegador la sustituye por la que tenga a
- * mano y el logotipo sale con otra letra, otro ancho y sin la cursiva negra.
- * Un logo que se ve bien sólo donde se hizo no es un logo.
+ * Dos razones, y la segunda es la que manda.
  *
- * Además el archivo trae tres capas `display:none` —guías de construcción de
- * Illustrator— que pesan 8 de sus 11 KB y no pintan nada.
+ * 1. **Hereda el color.** `currentColor` deja ponerlo sobre papel, sobre tinta
+ *    y sobre azul de proceso sin tener tres archivos. El azul de la marca
+ *    (#3450d2) y el del sistema (#1b4fd8) no son el mismo, y juntos se ven como
+ *    un error de impresión: aquí el isotipo toma el del sistema y deja de
+ *    competir consigo mismo.
  *
- * Así que aquí vive únicamente **la parte que no depende de ninguna fuente**:
- * las cinco figuras que forman la R. El viewBox va recortado a su caja real
- * (476 645 1522 1548) en vez del lienzo de 3000×3000 original, que era casi
- * todo aire y hacía imposible alinearlo con nada.
+ * 2. **El archivo original no se puede servir.** `LOGO  RITMO COUCH FER.svg`
+ *    lleva la palabra «ITMO» como `<text>` vivo en *Lorimer No 2 Condensed*,
+ *    una fuente comercial que no está en el repositorio. En la máquina del
+ *    diseñador se ve perfecta; en cualquier otra el navegador la sustituye y el
+ *    logotipo sale con otra letra y otro ancho.
  *
- * ## El color
+ * `apps/web/public/assets/logo.svg` existe y es este mismo isotipo, generado
+ * quitándole el `<text>` al original. Está ahí para quien lo necesite fuera de
+ * React —el favicon, una miniatura, un README—, pero la aplicación usa este
+ * componente.
  *
- * `currentColor`, no el azul de marca. El isotipo se pone encima de papel, de
- * tinta y de azul de proceso según dónde vaya, y un color fijo obligaría a
- * tener tres archivos. Además el azul de marca (#3450d2) y el azul del sistema
- * (#1b4fd8) no son el mismo: pintarlos juntos se ve como un error de impresión,
- * no como dos azules.
+ * ## Cómo salieron estas dos figuras, y por qué antes salieron mal
  *
- * Para el logotipo completo —la R **y** «RITMO» escrito— está el PNG, que se
- * exportó con la fuente de verdad. Se usa en la portada, donde la marca se
- * presenta y el nombre tiene que leerse tal cual se diseñó.
+ * La primera vez las elegí a mano leyendo el XML y me llevé cinco polígonos.
+ * Tres de ellos viven en capas `display:none` de Illustrator —guías de
+ * construcción— que mi filtro no supo excluir porque los grupos van anidados.
+ * El resultado se veía como un montón de galones sueltos: Fernando lo llamó
+ * «un marcador genérico», y tenía razón.
+ *
+ * La segunda vez no elegí nada: le quité el `<text>` al archivo, lo abrí en el
+ * navegador y le pregunté por `getBBox()`. Contestó `1002 853 995 1340`, y
+ * dentro de esa caja sólo caben estas dos figuras. La lección es la de siempre
+ * —mirar en vez de deducir— y aquí el que mira es el motor de render, que es el
+ * único que sabe de verdad qué se pinta.
  */
 
 export function Logo({
@@ -42,16 +47,13 @@ export function Logo({
 }) {
   return (
     <svg
-      viewBox="476 645 1522 1548"
+      viewBox="1002 853 995 1340"
       className={className}
       fill="currentColor"
       role={title ? "img" : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : "true"}
     >
-      <polygon points="685.17 648.48 866.25 645.33 584.17 919.33 755.36 689.01 685.17 648.48" />
-      <polygon points="475.9 1000.28 1233.77 1000.28 475.9 2046.59 826.52 1100 475.9 1000.28" />
-      <polygon points="878.48 1500 1233.77 1500 878.48 2046.59 1015.13 1572.05 878.48 1500" />
       <polygon points="1002.58 853.82 1997.42 853.82 1027.39 2193.05 1475.59 981.29 1002.58 853.82" />
       <polygon points="1542.67 1493.44 1997.42 1493.44 1542.67 2193.05 1718.47 1586.33 1542.67 1493.44" />
     </svg>

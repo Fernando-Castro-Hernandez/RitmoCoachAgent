@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Isotipo de Ritmo. Generado desde «LOGO  RITMO COUCH FER.svg» quitándole el
+  elemento <text>: la palabra «ITMO» va en Lorimer No 2 Condensed, una fuente
+  comercial que no está en el repositorio, así que fuera de la máquina del
+  diseñador se renderizaba con otra letra.
+
+  El viewBox es la caja real de las figuras, medida con getBBox() en el
+  navegador — no deducida leyendo el XML, que es como salió mal la primera vez.
+
+  La aplicación no consume este archivo: usa apps/web/src/components/Logo.tsx,
+  que es el mismo dibujo en línea y hereda el color. Éste existe para todo lo
+  demás (favicon, miniaturas, documentación).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="1002 853 995 1340" fill="#3450d2">
+  <polygon points="1002.58 853.82 1997.42 853.82 1027.39 2193.05 1475.59 981.29 1002.58 853.82" />
+  <polygon points="1542.67 1493.44 1997.42 1493.44 1542.67 2193.05 1718.47 1586.33 1542.67 1493.44" />
+</svg>
