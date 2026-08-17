@@ -397,3 +397,68 @@ def test_el_aviso_serializa_lo_que_n8n_necesita() -> None:
     d = aviso.as_dict()
     assert d["chat_id"] == 7
     assert d["local_date"] == "2026-08-17"
+
+
+# ── que los JSON exportados se puedan importar de verdad ──────────────
+
+
+def test_los_flujos_no_traen_etiquetas() -> None:
+    """Los cinco llevaban `tags: [{"name": "ritmo"}]`, y con eso **no se pueden
+    importar**.
+
+    `n8n import:workflow` crea la etiqueta por cada archivo, choca contra el
+    índice único de `tag_entity.name` al segundo, y **revierte la importación
+    entera**: cinco flujos dentro, cero flujos importados, y un mensaje que
+    habla de una clave duplicada sin decir de qué tabla.
+
+    Lo descubrí buscando por qué el canvas de n8n estaba vacío en el servidor
+    después de un despliegue correcto. Es el mismo tipo de fallo que el
+    artefacto que nadie subía: el entregable existe, está versionado, se ve
+    completo, y no funciona — y nada lo señalaba.
+
+    Las etiquetas son organización del lado de n8n, no parte de la definición
+    del flujo. Se quitan y se ponen a mano si alguien las quiere.
+    """
+    import json
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[3] / "automation" / "n8n"
+    flujos = sorted(raiz.glob("*.json"))
+    assert len(flujos) == 5, "faltan flujos exportados"
+
+    for ruta in flujos:
+        datos = json.loads(ruta.read_text(encoding="utf-8"))
+        assert "tags" not in datos, (
+            f"{ruta.name} trae etiquetas: la importación de los cinco fallará entera"
+        )
+
+
+def test_cada_flujo_pide_su_propio_endpoint() -> None:
+    """El nombre del archivo y el flujo que consulta tienen que coincidir.
+
+    Un copiar-pegar que deje dos flujos preguntando por `/due/morning` produce
+    un sistema que parece funcionar y manda el aviso equivocado a la hora
+    equivocada.
+    """
+    import json
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[3] / "automation" / "n8n"
+    esperado = {
+        "01": "morning",
+        "02": "checkin",
+        "03": "streak",
+        "04": "weekly",
+        "05": "escalation",
+    }
+
+    for ruta in sorted(raiz.glob("*.json")):
+        datos = json.loads(ruta.read_text(encoding="utf-8"))
+        urls = [
+            n["parameters"]["url"]
+            for n in datos["nodes"]
+            if n["type"].endswith("httpRequest") and "url" in n.get("parameters", {})
+        ]
+        assert urls, f"{ruta.name} no consulta a la API"
+        flujo = esperado[ruta.name[:2]]
+        assert f"/due/{flujo}" in urls[0], f"{ruta.name} consulta {urls[0]}, no {flujo}"

@@ -133,10 +133,5 @@
   "meta": {
     "instanceId": "ritmo"
   },
-  "tags": [
-    {
-      "name": "ritmo"
-    }
-  ],
   "notes": "A las 6:00 de la mañana de CADA corredor, en su zona horaria. La hora la decide la API, no este nodo: un nodo de horario tiene una sola zona."
 }

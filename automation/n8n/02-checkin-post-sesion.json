@@ -133,10 +133,5 @@
   "meta": {
     "instanceId": "ritmo"
   },
-  "tags": [
-    {
-      "name": "ritmo"
-    }
-  ],
   "notes": "A las 20:00 locales, y sólo a quien tenía sesión hoy y no registró nada. Preguntarle a quien ya lo contó es cómo se silencia un bot."
 }

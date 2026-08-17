@@ -190,10 +190,5 @@
   "meta": {
     "instanceId": "ritmo"
   },
-  "tags": [
-    {
-      "name": "ritmo"
-    }
-  ],
   "notes": "El único que habla cuando la puerta de seguridad está en rojo, y el único que confirma la entrega. Quien decide el rojo es el motor: assess() escala una molestia de 3+ que lleva 3 días. Este flujo sólo reparte."
 }
