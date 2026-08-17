@@ -184,8 +184,22 @@ export default function App() {
     return () => window.removeEventListener("popstate", alNavegar);
   }, []);
 
+  // La hoja se recarga cuando el coach termina de hablar.
+  //
+  // Hace falta porque la conversación CAMBIA el estado que la hoja pinta: el
+  // corredor cuenta de dónde parte, el coach llama a `create_plan`, y el plan
+  // pasa a existir. Sin esto la pantalla se queda diciendo «todavía no hay
+  // plan» junto a un coach que acaba de describirlo — lo vi en producción, y
+  // es la clase de incoherencia que hace dudar de todo lo demás.
+  //
+  // Se recarga al terminar el turno y no en cada evento: durante el turno la
+  // herramienta puede no haber corrido todavía, y pedirlo diez veces por
+  // conversación es gasto sin información nueva.
+  const [recargas, setRecargas] = useState(0);
+
   const enviarEvento = useCallback((evento: VoiceEvent) => {
     setMaquina((m) => transition(m, evento));
+    if (evento.type === "COACH_ENDED") setRecargas((n) => n + 1);
   }, []);
 
   // La sesión de voz vive en un ref: sobrevive a los renders y sólo hay una.
@@ -302,7 +316,7 @@ export default function App() {
     return () => {
       vivo = false;
     };
-  }, [pantalla]);
+  }, [pantalla, recargas]);
 
   if (pantalla === "cargando") {
     return (
