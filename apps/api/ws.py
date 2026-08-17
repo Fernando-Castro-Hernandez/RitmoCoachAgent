@@ -30,8 +30,8 @@ from apps.api.auth import usuario_de_token
 from apps.api.bridge import NovaBridge
 from apps.api.config import get_settings
 from apps.api.db.session import get_sessionmaker
-from apps.api.prompts import build_system_prompt
 from apps.api.renewal import ConversationContext, RenewingBridge
+from apps.api.session_context import build_prompt_for
 from apps.api.tool_runner import ToolRunner
 
 log = structlog.get_logger(__name__)
@@ -92,6 +92,13 @@ async def voice_socket(ws: WebSocket, token: str = "") -> None:
     user_id = usuario.id
     await ws.accept()
 
+    # El prompt se arma CON lo que ya se sabe del corredor: perfil, semana,
+    # veredicto de la puerta y los últimos turnos. Antes salía vacío, y el coach
+    # preguntaba cosas que ya estaban en el perfil — que es justo lo que su
+    # propio prompt le prohíbe. No las desobedecía: no las tenía.
+    async with get_sessionmaker()() as sesion:
+        prompt = await build_prompt_for(sesion, user_id)
+
     # El `user_id` sale del WebSocket y se le impone a cada herramienta. El que
     # mande el modelo en los argumentos se descarta: ver `tool_runner.py`.
     herramientas = ToolRunner(get_sessionmaker(), user_id=user_id)
@@ -105,7 +112,7 @@ async def voice_socket(ws: WebSocket, token: str = "") -> None:
     # que es el momento en que menos se nota mirando y más duele.
     bridge = RenewingBridge(
         lambda: NovaBridge(tool_runner=herramientas),
-        ConversationContext(base_prompt=build_system_prompt()),
+        ConversationContext(base_prompt=prompt),
         renew_after_s=settings.session_renew_after_s,
         voice_id=settings.nova_voice_id,
     )

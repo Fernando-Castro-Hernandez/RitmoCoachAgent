@@ -77,7 +77,7 @@ async def _fabrica(perfil: str) -> tuple[Any, Any]:
 async def _un_turno(entrada: str, perfil: str) -> tuple[list[str], str, list[dict[str, Any]]]:
     """Manda una frase y devuelve qué llamó, qué dijo y qué le devolvieron."""
     from apps.api.bridge import NovaBridge
-    from apps.api.prompts import build_system_prompt
+    from apps.api.session_context import build_prompt_for
     from apps.api.tool_runner import ToolRunner
 
     engine, fabrica = await _fabrica(perfil)
@@ -93,8 +93,13 @@ async def _un_turno(entrada: str, perfil: str) -> tuple[list[str], str, list[dic
             resultados.append(salida)
             return salida
 
+    # El mismo armado que usa el WebSocket: si la evaluación construyera el
+    # prompt de otra forma, mediría un coach que no es el que se despliega.
+    async with fabrica() as db:
+        prompt = await build_prompt_for(db, "eval")
+
     puente = NovaBridge(tool_runner=Espia())
-    await puente.start(build_system_prompt())
+    await puente.start(prompt)
     await puente.send_text(entrada)
 
     dijo: list[str] = []

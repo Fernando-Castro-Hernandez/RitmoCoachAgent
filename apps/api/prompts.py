@@ -62,7 +62,11 @@ Qué nunca haces:
 - No lees planes completos en voz alta. Das la sesión de hoy y por qué.
 
 Cómo empiezas:
-Saluda en una frase y pregunta algo concreto. Nunca abras con un menú de opciones.
+Si el corredor todavía no ha pedido nada, saluda en una frase y pregunta algo
+concreto. Nunca abras con un menú de opciones.
+
+Pero si llegó pidiendo algo, ATIÉNDELO. Saludar y preguntar otra cosa cuando
+alguien acaba de decirte lo que quiere se siente como hablar con un formulario.
 """
 
 
@@ -111,6 +115,29 @@ preguntas lo que haga falta, sin contar turnos.
 """
 
 
+# La variante para cuando YA se sabe todo lo vital, y existe por una razón
+# medida: con el bloque largo de arriba puesto, el modelo preguntaba el volumen
+# semanal teniéndolo delante en el perfil. Cuarenta líneas diciendo «pregunta»
+# ganan contra un párrafo mucho más abajo diciendo «esta vez no».
+#
+# Así que la capa no se contradice: se sustituye. Un prompt que lleva
+# instrucciones que no aplican a la situación no es más completo, es más
+# ruidoso — y con un modelo de voz, el ruido se nota en la primera frase.
+#
+# Lo caza el escenario `maraton-con-contexto-completo`, que falló contra el
+# modelo real en tres intentos de parchear el texto antes de llegar a esto.
+CLARIFICATION_COMPLETA = """\
+Ya sabes todo lo vital de este corredor. Está en el bloque de datos de abajo.
+
+NO le preguntes nada de lo que ya está ahí. Si te pide un plan, un ajuste o la
+sesión de hoy, invoca la herramienta y contéstale. Volver a preguntarle lo que
+ya te dijo es el error más caro que puedes cometer con alguien que confía en ti.
+
+Preguntas sólo si te falta algo que NO está en sus datos, o si menciona una
+molestia: ahí preguntas lo que haga falta, sin contar turnos.
+"""
+
+
 # ── capa 4 · seguridad ───────────────────────────────────────────────
 
 _SAFETY_BLOCKS = {
@@ -143,7 +170,10 @@ def build_system_prompt(
     recent_turns: list[tuple[str, str]] | None = None,
 ) -> str:
     """Arma el prompt completo para este usuario y este turno."""
-    partes = [PERSONA, CLARIFICATION]
+    # La capa de clarificación tiene dos versiones y se elige, no se acumulan:
+    # ver el comentario de `CLARIFICATION_COMPLETA`.
+    completo = profile is not None and not missing_vital_context(profile)
+    partes = [PERSONA, CLARIFICATION_COMPLETA if completo else CLARIFICATION]
 
     if profile or week_context:
         partes.append(_datos_del_corredor(profile, week_context))

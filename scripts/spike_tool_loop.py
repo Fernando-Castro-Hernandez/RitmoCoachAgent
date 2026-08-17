@@ -32,7 +32,7 @@ from apps.api.bridge import NovaBridge
 from apps.api.credentials import ensure_aws_credentials
 from apps.api.db.models import Base
 from apps.api.db.repo import ProfileRepo, StateRepo
-from apps.api.prompts import build_system_prompt
+from apps.api.session_context import build_prompt_for
 from apps.api.tool_runner import ToolRunner
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -82,8 +82,10 @@ async def _fabrica(completo: bool):
 
 async def sonda(nombre: str, frase: str, *, completo: bool) -> tuple[list[str], str]:
     engine, fabrica = await _fabrica(completo)
+    async with fabrica() as db:
+        prompt = await build_prompt_for(db, "spike", today=HOY)
     puente = NovaBridge(tool_runner=ToolRunner(fabrica, user_id="spike", today=HOY))
-    await puente.start(build_system_prompt())
+    await puente.start(prompt)
     print(f"\n── sonda {nombre} ─────────────────────────────────")
     print(f"› «{frase}»")
     await puente.send_text(frase)

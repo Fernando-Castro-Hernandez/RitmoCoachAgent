@@ -316,9 +316,22 @@ def main() -> int:
         action="store_true",
         help="ejecuta también contra Nova Sonic real (necesita AWS, tarda minutos)",
     )
+    parser.add_argument(
+        "--only",
+        metavar="ID",
+        help=(
+            "sólo este escenario. Para volver a comprobar uno que falló sin "
+            "pagar los veinte minutos de la suite entera"
+        ),
+    )
     args = parser.parse_args()
 
     escenarios = load_scenarios()
+    if args.only:
+        escenarios = [e for e in escenarios if e.id == args.only]
+        if not escenarios:
+            print(f"No hay ningún escenario con id «{args.only}».")
+            return 1
     if not escenarios:
         print("Sin escenarios. Un corredor sin escenarios no es un resultado verde.")
         return 1
