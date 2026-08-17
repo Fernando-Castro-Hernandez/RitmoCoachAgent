@@ -16,9 +16,20 @@ services:
       - ${HOME}/.aws:/root/.aws:ro
 
   n8n:
-    ports:
-      # En local sí se publica: es donde se importan y se editan los flujos.
-      - "5678:5678"
+    # **Aquí NO se redeclara el puerto.** Compose no reemplaza la lista `ports`
+    # de un override: la AÑADE. Poner `5678:5678` aquí dejaba dos
+    # publicaciones del mismo puerto —`0.0.0.0:5678` y `127.0.0.1:5678`—, y
+    # Docker liga la primera, encuentra la segunda ocupada por él mismo y se
+    # niega a arrancar con «address already in use» señalando a un puerto que
+    # no usa nadie más. `docker compose up n8n` no funcionaba en local.
+    #
+    # No hace falta: la publicación de producción es `127.0.0.1:5678`, y el
+    # navegador de esta misma máquina llega ahí por http://localhost:5678.
     environment:
       # El navegador llega a la API por localhost, no por la red de Compose.
-      RITMO_API_URL: http://api:8000
+      #
+      # Para grabar el vídeo sin abrir un túnel al servidor: pon en el `.env`
+      #   RITMO_API_URL=https://54-80-131-31.sslip.io
+      # y levanta sólo `db` y `n8n`. Los flujos consultan la API de producción
+      # —datos reales, cuenta demo real— desde un n8n local en localhost:5678.
+      RITMO_API_URL: ${RITMO_API_URL:-http://api:8000}

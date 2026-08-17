@@ -91,7 +91,10 @@ services:
       # expresiones se resuelven vacías — el flujo llamaría a `/api/...` sin
       # host y fallaría en silencio.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
-      RITMO_API_URL: http://api:8000
+      # Se puede apuntar a otra API sin tocar este archivo. Sirve para grabar:
+      # n8n corriendo en el portátil contra la API de producción, que es donde
+      # están los datos de verdad. Por defecto, la API de al lado.
+      RITMO_API_URL: ${RITMO_API_URL:-http://api:8000}
       RITMO_AUTOMATION_KEY: ${AUTOMATION_API_KEY:-}
     ports:
       # SÓLO en el bucle local. n8n trae su propia interfaz de administración y
