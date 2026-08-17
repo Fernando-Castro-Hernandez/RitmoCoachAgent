@@ -20,6 +20,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type HardProfile,
   type Sesion,
+  type TodaySheet,
+  fetchToday,
   getToken,
   logout,
   me,
@@ -78,9 +80,10 @@ function estadoForzado() {
   };
 }
 
-/* Plan de demostración. Se sustituye por GET /api/plan cuando el motor haya
-   generado uno; hoy el corredor recién creado todavía no tiene plan, así que
-   esto es lo que ve mientras la conversación recoge el contexto que falta. */
+/* Plan de ejemplo. Ya NO es lo normal: se usa sólo mientras `GET /api/today`
+   responde, y para el corredor que todavía no tiene plan. En cuanto llega el
+   dato real, el sello MUESTRA desaparece — porque a partir de ahí las cifras
+   sí salieron del motor, que es la única condición para quitarlo. */
 const CTX_DEMO: WeekContext = {
   week: 7,
   totalWeeks: 16,
@@ -106,6 +109,7 @@ export default function App() {
   const [nivel, setNivel] = useState(0);
   const [turnos, setTurnos] = useState<Turn[]>([]);
   const [safety, setSafety] = useState<Safety>("clear");
+  const [hoja, setHoja] = useState<TodaySheet | null>(null);
   const [ttfa, setTtfa] = useState<number | null>(null);
   const forzado = useState(estadoForzado)[0];
 
@@ -230,6 +234,29 @@ export default function App() {
     setPantalla(sesion.onboarded ? "hoja" : "onboarding");
   };
 
+  // La hoja se carga cuando se entra a ella, y se vuelve a cargar al volver de
+  // la captura: registrar una carrera puede cambiar la sesión de hoy y el
+  // veredicto de la puerta.
+  useEffect(() => {
+    if (pantalla !== "hoja") return;
+    let vivo = true;
+    fetchToday()
+      .then((h) => {
+        if (!vivo) return;
+        setHoja(h);
+        setSafety(h.safety);
+      })
+      .catch(() => {
+        // Sin backend se queda la muestra, con su sello puesto. Lo que no puede
+        // pasar es que un fallo de red deje al corredor viendo datos de ejemplo
+        // creyendo que son suyos, y el sello es justo lo que lo impide.
+        if (vivo) setHoja(null);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [pantalla]);
+
   if (pantalla === "cargando") {
     return (
       <div className="flex h-dvh items-center justify-center">
@@ -268,10 +295,14 @@ export default function App() {
 
   return (
     <Main
-        ctx={CTX_DEMO}
-        session={{ ...SESION_DEMO, why: t("demoWhy") }}
+        ctx={hoja?.week ?? CTX_DEMO}
+        session={
+          hoja
+            ? hoja.session && { ...hoja.session, why: hoja.session.why || t("demoWhy") }
+            : { ...SESION_DEMO, why: t("demoWhy") }
+        }
         safety={forzado.safety ?? safety}
-        referral={t("demoReferral")}
+        referral={hoja?.referral ?? t("demoReferral")}
         turns={forzado.turnos ? [...forzado.turnos] : turnos}
         voice={forzado.voice ?? maquina.state}
         level={forzado.voice === "LISTENING" ? 0.55 : nivel}
@@ -288,11 +319,11 @@ export default function App() {
          corredor entero; ahora sólo suelta el token y los datos siguen en su
          cuenta, que es lo que la gente espera de un «cerrar sesión». */
       onStartOver={logout}
-      /* La hoja todavía no consume GET /api/plan: lo que se ve es una muestra,
-         y se dice. Un desconocido que abre la URL en frío no puede confundir
-         datos de ejemplo con una prescripción hecha para él — la regla 2 del
-         producto es que toda cifra viene del motor y SE NOTA. */
-      specimen
+      /* El sello MUESTRA sólo mientras las cifras no vengan del motor. En
+         cuanto `/api/today` responde con un plan, desaparece — y si el corredor
+         aún no tiene plan, se queda, porque entonces sí es un ejemplo. La regla
+         2 del producto es que toda cifra viene del motor y SE NOTA. */
+      specimen={!hoja?.has_plan}
     />
   );
 }

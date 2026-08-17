@@ -163,6 +163,7 @@ RUTAS_DEL_CORREDOR = [
     ("GET", "/api/profile"),
     ("POST", "/api/profile"),
     ("GET", "/api/plan/export.csv"),
+    ("GET", "/api/today"),
     ("POST", "/api/telegram/link"),
     ("GET", "/api/telegram/status"),
     ("GET", "/api/auth/me"),

@@ -212,6 +212,39 @@ export function estadoTelegram() {
   return pedir<{ linked: boolean; bot_configured: boolean }>("/api/telegram/status");
 }
 
+// ── la hoja ──────────────────────────────────────────────────────────
+
+export interface TodaySheet {
+  /** Ya traducido al vocabulario de la interfaz: clear / caution / flag. */
+  safety: "clear" | "caution" | "flag";
+  safety_reason: string;
+  referral: string | null;
+  has_plan: boolean;
+  week: {
+    week: number;
+    totalWeeks: number;
+    phase: "base" | "construccion" | "pico" | "taper";
+    race: string;
+    daysLeft: number | null;
+  } | null;
+  /** `null` en rojo y en día de descanso. En rojo NO viaja: la pantalla no
+   *  puede enseñar una prescripción que no tiene. */
+  session: {
+    kind: "largo" | "suave" | "tempo" | "intervalos";
+    distanceKm: number;
+    pace: string | null;
+    effort: string;
+    zone: number;
+    durationLabel: string;
+    why: string;
+  } | null;
+  rest_day: boolean;
+}
+
+export function fetchToday() {
+  return pedir<TodaySheet>("/api/today");
+}
+
 // ── plan ─────────────────────────────────────────────────────────────
 
 /**

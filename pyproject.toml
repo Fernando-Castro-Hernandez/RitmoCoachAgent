@@ -73,9 +73,30 @@ deploy     = "bash infra/deploy.sh"
 # sys.path y `apps.api` se importa. PYTHONPATH añade el motor de dominio.
 # El contenedor ya define ambos (infra/Dockerfile.api); esto es para local.
 [tool.poe.tasks.api]
-help = "API en local con recarga automática"
+help = "API en local con recarga automática (Postgres, necesita docker)"
 cmd = "python -m uvicorn apps.api.main:app --reload --port 8000"
 env = { PYTHONPATH = "packages" }
+
+# La misma API contra SQLite, sin Docker. Existe porque el camino de Postgres
+# tiene dos requisitos que en Windows fallan callados: Docker Desktop levantado,
+# y que psycopg pueda correr en async — y el bucle de eventos que uvicorn usa
+# por defecto en Windows (Proactor) no le sirve.
+#
+# **--reload no es opcional aquí.** Sin él, la API se queda sirviendo el código
+# con el que arrancó y el navegador recibe 404 de rutas que sí existen en el
+# repositorio. Nos pasó, y costó un rato encontrarlo.
+[tool.poe.tasks.api-local]
+help = "API en local sobre SQLite, sin Docker"
+cmd = "python -m uvicorn apps.api.main:app --reload --port 8000"
+env = { PYTHONPATH = "packages", DATABASE_URL = "sqlite+aiosqlite:///./ritmo-dev.db" }
+
+[tool.poe.tasks.db-local]
+help = "Crea la base local de SQLite y siembra la cuenta de demostración"
+sequence = [
+  { cmd = "alembic upgrade head" },
+  { cmd = "python scripts/seed_demo.py --reset" },
+]
+env = { PYTHONPATH = "packages", DATABASE_URL = "sqlite+aiosqlite:///./ritmo-dev.db" }
 
 # `shell` y no `cmd`: en Windows npm es npm.cmd, y las tareas `cmd` de poe
 # lanzan el proceso directamente sin pasar por el shell, así que fallan con
