@@ -26,7 +26,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from coach_domain.paces import format_pace
+import structlog
+from coach_domain.paces import format_pace, parse_pace
 from coach_domain.plans import (
     InsufficientFrequencyError,
     InsufficientTimeError,
@@ -41,6 +42,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.clarification import QUESTIONS, missing_vital_context
 from apps.api.db.repo import LogRepo, ProfileRepo, StateRepo
+
+log = structlog.get_logger(__name__)
 
 # Los días de la semana como los diría una persona, no como los numera Python.
 _DIAS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
@@ -328,6 +331,11 @@ class CoachTools:
         *,
         distance: str,
         race_date: str | None = None,
+        weekly_volume_km: float | None = None,
+        longest_run_km: float | None = None,
+        reference_pace: str | None = None,
+        injuries: list[str] | None = None,
+        days_per_week: int | None = None,
     ) -> dict[str, Any]:
         """Genera el plan, o se niega diciendo qué falta preguntar.
 
@@ -335,7 +343,32 @@ class CoachTools:
         a ser una propiedad del sistema.** Si el modelo intenta generar un plan
         de maratón sin saber cuánto corre el corredor, no puede: recibe la lista
         de lo que le falta y las preguntas ya redactadas.
+
+        ## Por qué acepta el contexto de la conversación
+
+        Antes leía el perfil de la base y nada más. Y **ninguna herramienta
+        sabía escribir en el perfil**: la capa blanda «salía hablando» y no
+        tenía dónde aterrizar. El resultado era un bucle perfecto — el corredor
+        contaba sus siete kilómetros semanales, el modelo lo entendía, llamaba a
+        `create_plan`, la base seguía vacía, la herramienta devolvía las cuatro
+        preguntas, y el modelo las repetía. Para siempre.
+
+        Lo que se dice en voz alta ES el dato. Ahora entra por aquí y **se
+        persiste antes de validar nada**: si el corredor lo contó, el sistema lo
+        sabe, y el mismo turno que trae el contexto genera el plan.
+
+        Lo que NO cambia: si falta algo de verdad, sigue negándose igual. El
+        canal por el que llega el dato es lo que se amplía, no el listón.
         """
+        await self._persistir_lo_dicho(
+            user_id,
+            weekly_volume_km=weekly_volume_km,
+            longest_run_km=longest_run_km,
+            reference_pace=reference_pace,
+            injuries=injuries,
+            days_per_week=days_per_week,
+        )
+
         contexto = await self.profiles.context(user_id)
         faltantes = missing_vital_context(contexto)
         if faltantes:
@@ -405,6 +438,72 @@ class CoachTools:
             "first_week_km": plan.weeks[0].load.total_km,
             "race_date": race_date,
             "source": "coach_domain.plans.build_plan",
+        }
+
+    async def _persistir_lo_dicho(
+        self,
+        user_id: str,
+        *,
+        weekly_volume_km: float | None,
+        longest_run_km: float | None,
+        reference_pace: str | None,
+        injuries: list[str] | None,
+        days_per_week: int | None = None,
+    ) -> None:
+        """Guarda en el perfil lo que el corredor acaba de contar.
+
+        Sólo escribe lo que viene con valor: un `None` significa «el modelo no
+        lo mencionó», no «el corredor dijo que no tiene». Sobrescribir con nulo
+        borraría lo que el carrusel ya había capturado.
+
+        `injuries` es la excepción y por eso se compara con `None` y no por
+        verdad: una **lista vacía** es una respuesta legítima y valiosa —«no
+        tengo molestias»— y es justo lo que `missing_vital_context` necesita
+        para dejar de preguntar. Tratarla como ausencia mantendría el bucle.
+        """
+        campos: dict[str, Any] = {}
+        if weekly_volume_km is not None:
+            campos["weekly_volume_km"] = float(weekly_volume_km)
+        if longest_run_km is not None:
+            campos["longest_run_km"] = float(longest_run_km)
+        if injuries is not None:
+            campos["injuries"] = list(injuries)
+        if days_per_week is not None:
+            campos["days_per_week"] = int(days_per_week)
+
+        if reference_pace:
+            campos.update(self._referencia_desde_ritmo(reference_pace, longest_run_km))
+
+        if campos:
+            await self.profiles.save(user_id, **campos)
+            log.info("tools.perfil_desde_la_conversacion", campos=sorted(campos))
+
+    def _referencia_desde_ritmo(self, ritmo: str, longest_run_km: float | None) -> dict[str, Any]:
+        """Convierte «7:00» en la pareja distancia/tiempo que guarda el perfil.
+
+        El motor ancla las zonas en una referencia de distancia + tiempo, no en
+        un ritmo suelto. Se usa la tirada más larga que haya contado el corredor
+        como distancia de esa referencia, y 1 km si no la hay.
+
+        **Y hay que decir lo que esto es:** un ritmo de conversación no es un
+        resultado de carrera. Riegel asume esfuerzo máximo, así que tomar un
+        ritmo cómodo como si fuera una marca **subestima** la forma del corredor
+        — y eso deja las zonas más lentas de lo que podrían ser. Errar hacia
+        despacio es el lado correcto en el que errar: nadie se lesiona por
+        entrenar suave de más.
+        """
+        try:
+            segundos_por_km = parse_pace(ritmo)
+        except ValueError:
+            # Un ritmo que no se entiende no se guarda a medias ni revienta el
+            # turno: se ignora y `missing_vital_context` lo volverá a pedir.
+            log.warning("tools.ritmo_ilegible", ritmo=ritmo)
+            return {}
+
+        distancia = float(longest_run_km) if longest_run_km else 1.0
+        return {
+            "reference_distance_km": distancia,
+            "reference_time_sec": int(segundos_por_km * distancia),
         }
 
     # ── extra · ambiente (R8) ────────────────────────────────────────

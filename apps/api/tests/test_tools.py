@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from apps.api.clarification import VITAL_FIELDS
+from apps.api.clarification import VITAL_FIELDS, missing_vital_context
 from apps.api.db.models import Base
 from apps.api.tools import CoachTools
 
@@ -318,3 +318,158 @@ async def test_en_condiciones_normales_no_se_ajusta_nada(
 ) -> None:
     r = await tools.environment_check(temp_c=temperatura)
     assert r["pace_adjustment_sec"] == 0
+
+
+# ── el bucle infinito del onboarding ─────────────────────────────────
+#
+# El fallo: el corredor contaba sus siete kilómetros semanales, el modelo lo
+# entendía, llamaba a `create_plan`, la base seguía vacía —NINGUNA herramienta
+# sabía escribir en el perfil— y la herramienta devolvía las cuatro preguntas.
+# Y el modelo las repetía. Para siempre.
+#
+# Lo que se prueba aquí es que lo dicho en voz alta ES el dato: entra por
+# `create_plan` y se persiste ANTES de validar nada.
+
+
+@pytest.mark.asyncio
+async def test_lo_dicho_hablando_genera_el_plan_en_el_mismo_turno(db: AsyncSession) -> None:
+    """El caso exacto que reportaba el bucle: 7 km/semana, 4 de tirada, 7:00.
+
+    Se parte de un perfil con SÓLO la meta — ni siquiera los días por semana —
+    porque así llega alguien que acaba de registrarse. Los cinco campos vitales
+    entran por la conversación, en una llamada.
+    """
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="10k")
+
+    resultado = await herramientas.create_plan(
+        "u1",
+        distance="10k",
+        weekly_volume_km=7.0,
+        longest_run_km=4.0,
+        reference_pace="7:00",
+        injuries=[],
+        days_per_week=3,
+    )
+
+    assert resultado["ok"] is True, resultado
+    assert resultado["weeks"] > 0
+
+
+@pytest.mark.asyncio
+async def test_lo_dicho_queda_guardado_en_el_perfil(db: AsyncSession) -> None:
+    """No basta con que funcione este turno: el dato tiene que sobrevivir.
+
+    Si sólo se usara en memoria, la siguiente sesión volvería a preguntar y el
+    bucle reaparecería un día después en vez de al instante.
+    """
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="10k", days_per_week=3)
+
+    await herramientas.create_plan(
+        "u1",
+        distance="10k",
+        weekly_volume_km=7.0,
+        longest_run_km=4.0,
+        reference_pace="7:00",
+        injuries=[],
+    )
+
+    contexto = await herramientas.profiles.context("u1")
+    assert contexto is not None
+    assert contexto["weekly_volume_km"] == 7.0
+    assert contexto["longest_run_km"] == 4.0
+    assert contexto["injuries"] == []
+    # Y ya no falta nada: la próxima llamada no vuelve a preguntar.
+    assert missing_vital_context(contexto) == []
+
+
+@pytest.mark.asyncio
+async def test_la_lista_vacia_de_molestias_es_una_respuesta(db: AsyncSession) -> None:
+    """«No tengo molestias» tiene que contar como contestado.
+
+    Si `[]` se tratara como ausencia, `missing_vital_context` seguiría pidiendo
+    `injuries` y el bucle se mantendría por ese único campo.
+    """
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="10k", days_per_week=3)
+
+    await herramientas.create_plan(
+        "u1",
+        distance="10k",
+        weekly_volume_km=7.0,
+        longest_run_km=4.0,
+        reference_pace="7:00",
+        injuries=[],
+    )
+    contexto = await herramientas.profiles.context("u1")
+    assert "injuries" not in missing_vital_context(contexto)
+
+
+@pytest.mark.asyncio
+async def test_el_ritmo_se_ancla_en_la_tirada_mas_larga(db: AsyncSession) -> None:
+    """4 km a 7:00 se guardan como una referencia de 4 km en 28 minutos."""
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="10k", days_per_week=3)
+
+    await herramientas.create_plan(
+        "u1",
+        distance="10k",
+        weekly_volume_km=7.0,
+        longest_run_km=4.0,
+        reference_pace="7:00",
+        injuries=[],
+    )
+    contexto = await herramientas.profiles.context("u1")
+    assert contexto["reference_distance_km"] == 4.0
+    assert contexto["reference_time_sec"] == 7 * 60 * 4
+
+
+@pytest.mark.asyncio
+async def test_un_ritmo_ilegible_no_tumba_el_turno(db: AsyncSession) -> None:
+    """Se ignora y se vuelve a pedir, en vez de reventar a media conversación."""
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="10k", days_per_week=3)
+
+    resultado = await herramientas.create_plan(
+        "u1",
+        distance="10k",
+        weekly_volume_km=7.0,
+        longest_run_km=4.0,
+        reference_pace="siete minutos por kilo",
+        injuries=[],
+    )
+
+    assert resultado["ok"] is False
+    assert "reference_pace" in resultado["needs_context"]
+
+
+@pytest.mark.asyncio
+async def test_lo_que_no_se_menciona_no_borra_lo_que_ya_habia(db: AsyncSession) -> None:
+    """`None` es «el modelo no lo mencionó», no «el corredor dijo que no».
+
+    Sobrescribir con nulo borraría lo que el carrusel ya capturó, y el corredor
+    vería desaparecer datos que él mismo escribió hace un minuto.
+    """
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save(
+        "u1", goal_distance="10k", days_per_week=3, longest_run_km=12.0, injuries=["rodilla"]
+    )
+
+    await herramientas.create_plan("u1", distance="10k", weekly_volume_km=20.0)
+
+    contexto = await herramientas.profiles.context("u1")
+    assert contexto["longest_run_km"] == 12.0
+    assert contexto["injuries"] == ["rodilla"]
+
+
+@pytest.mark.asyncio
+async def test_sin_contexto_sigue_negandose(db: AsyncSession) -> None:
+    """El canal por el que llega el dato se amplía; el listón no baja."""
+    herramientas = CoachTools(db, today=HOY)
+    await herramientas.profiles.save("u1", goal_distance="42k")
+
+    resultado = await herramientas.create_plan("u1", distance="42k")
+
+    assert resultado["ok"] is False
+    assert "weekly_volume_km" in resultado["needs_context"]

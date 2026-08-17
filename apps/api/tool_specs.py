@@ -111,11 +111,21 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
         },
     ),
     "create_plan": (
-        "Genera el plan de entrenamiento completo. **Puede negarse**: si aún no "
-        "sabemos lo suficiente del corredor, devuelve `ok: false` con "
-        "`needs_context` y las preguntas ya redactadas en `ask`. Eso no es un "
-        "error — haz la primera pregunta y vuelve a intentarlo cuando la "
-        "conteste. Insistir sin contestar no cambia el resultado.",
+        "Genera el plan de entrenamiento completo.\n"
+        "\n"
+        "**PASA TODO LO QUE YA TE HAYA CONTADO, EN LA MISMA LLAMADA.** Si en la "
+        "conversación te dijo cuánto corre, cuál es su tirada más larga, a qué "
+        "ritmo o si tiene molestias, mándalo aquí: se guarda en su perfil y el "
+        "plan sale en este mismo turno. Volver a preguntarle lo que acaba de "
+        "decirte es el error más caro que puedes cometer.\n"
+        "\n"
+        "Si dijo que NO tiene molestias, manda `injuries: []` — la lista vacía "
+        "es una respuesta, y es la que hace que deje de preguntarse.\n"
+        "\n"
+        "**Puede negarse**: si de verdad falta algo, devuelve `ok: false` con "
+        "`needs_context` y una pregunta ya redactada en `next_question`. Haz esa "
+        "pregunta —UNA, conversacional— y vuelve a llamar añadiendo lo que te "
+        "conteste. Insistir sin datos nuevos no cambia el resultado.",
         {
             "distance": {
                 "type": "string",
@@ -123,6 +133,33 @@ _ESQUEMAS: dict[str, tuple[str, dict[str, Any]]] = {
                 "description": "la meta del corredor",
             },
             "race_date": {"type": "string", "description": "fecha de la carrera, AAAA-MM-DD"},
+            "weekly_volume_km": {
+                "type": "number",
+                "description": "kilómetros que corre por semana AHORA, tal como te lo dijo",
+            },
+            "longest_run_km": {
+                "type": "number",
+                "description": "la distancia más larga que YA corrió, no la que quiere correr",
+            },
+            "reference_pace": {
+                "type": "string",
+                "description": (
+                    "su ritmo habitual en minutos por kilómetro, formato «7:00». "
+                    "Sirve para anclar las zonas."
+                ),
+            },
+            "injuries": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "molestias o lesiones que mencione, en sus palabras. "
+                    "LISTA VACÍA si dijo que no tiene ninguna."
+                ),
+            },
+            "days_per_week": {
+                "type": "integer",
+                "description": "cuántos días a la semana puede correr",
+            },
         },
     ),
     "adjust_plan": (
