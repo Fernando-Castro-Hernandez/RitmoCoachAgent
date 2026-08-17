@@ -1,3 +1,12 @@
+# Este archivo es el de PRODUCCIÓN. Lo de local vive en
+# `docker-compose.override.yml`, que Compose carga solo y que aquí no aplica.
+#
+# La separación existe por un detalle concreto: en local la API usa las
+# credenciales de `~/.aws` montadas como volumen, y en el EC2 usa el rol de
+# instancia. Un volumen que apunta a un directorio inexistente no falla — lo
+# crea vacío — así que el error sería «no encuentro credenciales» en un sitio
+# donde sí las hay. Mejor que el montaje no exista en producción.
+
 services:
   db:
     image: postgres:17-alpine
@@ -14,6 +23,23 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # Migraciones. Corren y salen; nadie sirve tráfico hasta que terminan.
+  #
+  # Va en su propio servicio y no en el arranque de la API por una razón que se
+  # nota con más de una réplica: dos APIs arrancando a la vez lanzarían Alembic
+  # dos veces sobre la misma base. Aquí sólo hay una que puede hacerlo.
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://ritmo:${DB_PASSWORD}@db:5432/ritmo
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build:
       context: .
@@ -22,19 +48,29 @@ services:
       DATABASE_URL: postgresql+psycopg://ritmo:${DB_PASSWORD}@db:5432/ritmo
       AWS_REGION: ${AWS_REGION:-us-east-1}
       NOVA_MODEL_ID: ${NOVA_MODEL_ID:-amazon.nova-2-sonic-v1:0}
-      NOVA_VOICE_ID: ${NOVA_VOICE_ID:-Lupe}
+      NOVA_VOICE_ID: ${NOVA_VOICE_ID:-carlos}
+
+      # Visión: API directa de Anthropic, no Bedrock (ADR 0014).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VISION_MODEL_CHAIN: ${VISION_MODEL_CHAIN:-claude-haiku-4-5-20251001}
+
+      # Sin esto la API firma con un secreto de proceso y cada reinicio del
+      # contenedor cierra la sesión de todo el mundo.
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET en .env}
+
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      AUTOMATION_API_KEY: ${AUTOMATION_API_KEY:-}
+
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
-    volumes:
-      # En local monta las credenciales de AWS en sólo lectura.
-      # En el EC2 este volumen no existe y se usa el rol de instancia.
-      - ${HOME}/.aws:/root/.aws:ro
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   n8n:
@@ -49,8 +85,19 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?falta N8N_ENCRYPTION_KEY en .env}
       GENERIC_TIMEZONE: America/Mexico_City
       N8N_PORT: 5678
+
+      # Los cinco flujos leen estas dos con `$env`. Sin la primera variable de
+      # abajo, n8n bloquea el acceso al entorno desde los nodos y las
+      # expresiones se resuelven vacías — el flujo llamaría a `/api/...` sin
+      # host y fallaría en silencio.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      RITMO_API_URL: http://api:8000
+      RITMO_AUTOMATION_KEY: ${AUTOMATION_API_KEY:-}
     ports:
-      - "5678:5678"
+      # SÓLO en el bucle local. n8n trae su propia interfaz de administración y
+      # publicarla en internet sería regalar el panel que dispara los avisos y
+      # guarda las credenciales del bot. Se llega por un túnel de SSM.
+      - "127.0.0.1:5678:5678"
     volumes:
       - n8ndata:/home/node/.n8n
       - ./automation/n8n:/workflows:ro
@@ -62,6 +109,7 @@ services:
   caddy:
     image: caddy:2-alpine
     environment:
+      # En producción es el dominio real y Caddy emite el certificado solo.
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
     ports:
       - "80:80"

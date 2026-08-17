@@ -1,0 +1,24 @@
+# Lo que cambia en local. Compose carga este archivo solo, sin decírselo.
+#
+# En el EC2 no existe —el despliegue clona el repositorio y lo borra— así que
+# `docker compose up` allí levanta la versión de producción sin más ceremonia.
+#
+# La diferencia que justifica la separación son las credenciales de AWS: aquí
+# se montan desde `~/.aws`, y en el servidor las da el rol de instancia. El
+# montaje no puede quedarse en el archivo de producción porque un volumen que
+# apunta a un directorio inexistente no falla: Docker lo crea vacío, y el error
+# aparece luego como «no encuentro credenciales» en una máquina que sí las
+# tiene. Un fallo callado en el sitio equivocado.
+
+services:
+  api:
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+
+  n8n:
+    ports:
+      # En local sí se publica: es donde se importan y se editan los flujos.
+      - "5678:5678"
+    environment:
+      # El navegador llega a la API por localhost, no por la red de Compose.
+      RITMO_API_URL: http://api:8000
