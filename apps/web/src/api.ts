@@ -194,6 +194,38 @@ export function readWatchScreenshot(archivo: File) {
   return pedir<VisionResponse>("/api/vision/workout", { method: "POST", body: form });
 }
 
+// ── técnica en vídeo ─────────────────────────────────────────────────
+
+export interface GaitFinding {
+  observable:
+    | "foot_strike_position"
+    | "hip_drop"
+    | "arm_crossover"
+    | "trunk_lean"
+    | "cadence_impression";
+  assessment: "ok" | "watch" | "flag";
+  note: string;
+}
+
+export interface GaitResponse {
+  ok: boolean;
+  reason?: string;
+  findings: GaitFinding[];
+  /** Sale de la biblioteca curada del motor, nunca del texto del modelo. */
+  cue: { id: string; category: string; text: string } | null;
+  /** Por qué no hay señal, cuando no la hay. Sin esto la pantalla no puede
+   *  distinguir «se te ve bien» de «hoy no te corrijo porque te duele algo». */
+  cue_blocked_by_safety?: boolean;
+  safety?: "green" | "amber" | "red";
+}
+
+/** Sube los fotogramas ya extraídos. El vídeo se queda en el teléfono. */
+export function analizarTecnica(fotogramas: Blob[]) {
+  const form = new FormData();
+  fotogramas.forEach((f, i) => form.append("files", f, `f${i}.jpg`));
+  return pedir<GaitResponse>("/api/vision/gait", { method: "POST", body: form });
+}
+
 // ── Telegram ─────────────────────────────────────────────────────────
 
 export interface TelegramLink {

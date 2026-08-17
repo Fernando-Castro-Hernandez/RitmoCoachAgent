@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 
+import { ApiError, descargarPlanCsv } from "../api";
 import { SafetyStop } from "../components/SafetyStop";
 import { TelegramLink } from "../components/TelegramLink";
 import {
@@ -52,6 +53,7 @@ interface Props {
   onSend: (text: string) => void;
   onAcknowledge: () => void;
   onUpload: () => void;
+  onGait: () => void;
   /** Latencia real del último turno, en ms (ADR 0012). */
   ttfaMs?: number | null;
   onStartOver?: () => void;
@@ -74,6 +76,7 @@ export function Main({
   onSend,
   onAcknowledge,
   onUpload,
+  onGait,
   ttfaMs,
   onStartOver,
   specimen = false,
@@ -81,6 +84,24 @@ export function Main({
   const { t } = useT();
   const [texto, setTexto] = useState("");
   const [escribiendo, setEscribiendo] = useState(false);
+  const [descargando, setDescargando] = useState(false);
+  const [errorCsv, setErrorCsv] = useState("");
+
+  // La descarga no puede ser un `<a href>`: el endpoint pide el token y un
+  // enlace no lleva cabeceras. Se pide, se convierte en blob y se dispara.
+  const descargar = async () => {
+    setDescargando(true);
+    setErrorCsv("");
+    try {
+      await descargarPlanCsv();
+    } catch (e) {
+      // Un 404 aquí significa que el motor todavía no generó nada, y decirlo
+      // así es más útil que un «error» genérico que no sugiere qué hacer.
+      setErrorCsv(e instanceof ApiError && e.status === 404 ? t("exportEmpty") : t("exportFailed"));
+    } finally {
+      setDescargando(false);
+    }
+  };
 
   // El campo de texto se impone solo cuando la voz no puede: sin micrófono no
   // hay nada que ofrecer detrás de un botón.
@@ -137,14 +158,50 @@ export function Main({
                 {ttfaMs} ms
               </span>
             )}
+          </div>
+
+          {/* Las dos rutas multimodales, en la misma fila y con el mismo peso:
+              una lee números de una pantalla, la otra mira la zancada. Ninguna
+              es un ajuste escondido — son características del producto y viven
+              en la hoja. */}
+          <div className="grid grid-cols-2 divide-x divide-ink-15 border-b border-ink-15">
             <button
               type="button"
               onClick={onUpload}
-              className="label border-l border-ink-15 px-4 py-3 transition-colors hover:bg-ink hover:text-paper"
+              className="label px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
             >
               {t("uploadTitle")}
             </button>
+            <button
+              type="button"
+              onClick={onGait}
+              className="label px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper"
+            >
+              {t("gaitTitle")}
+            </button>
           </div>
+
+          {/* La descarga sólo aparece cuando hay algo que descargar. Un botón
+              que responde «no hay plan» es una promesa incumplida, y responde a
+              lo que dijo la entrevista de la Fase 2: el corredor experimentado
+              ya lleva su hoja de cálculo, y no se le pide que la abandone. */}
+          {hasPlan && !specimen && (
+            <div className="border-b border-ink-15">
+              <button
+                type="button"
+                onClick={descargar}
+                disabled={descargando}
+                className="label w-full px-4 py-3 text-left transition-colors hover:bg-ink hover:text-paper disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-70"
+              >
+                {t("exportCsv")}
+              </button>
+              {errorCsv && (
+                <p role="alert" className="px-4 pb-3 text-[0.8125rem] text-ink-70">
+                  {errorCsv}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Vincular Telegram vive en la hoja y no en unos ajustes escondidos:
               es el canal por el que el coach busca al corredor cuando algo va

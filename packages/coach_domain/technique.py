@@ -141,3 +141,43 @@ def select_cue(
     # El módulo hace que la rotación dé la vuelta en vez de agotarse.
     bloque = (max(week_index, 1) - 1) // CUE_ROTATION_WEEKS
     return candidatas[bloque % len(candidatas)]
+
+
+def select_cue_by_category(
+    category: str,
+    *,
+    level: str,
+    week_index: int,
+    safety: SafetyVerdict,
+    exclude: Collection[str] = (),
+) -> TechniqueCue | None:
+    """La señal de una categoría concreta, con los mismos filtros que `select_cue`.
+
+    La usa la ruta de vídeo: el modelo dice qué observó, el mapa de la API lo
+    traduce a una categoría, y la señal sale de aquí — de la misma biblioteca
+    curada que se dice por voz, con la misma puerta de seguridad delante.
+
+    Devuelve `None` cuando la categoría no tiene señal para este corredor: nivel
+    que no la incluye, contraindicación activa, o veredicto que no es verde. Los
+    tres casos significan lo mismo de cara al producto —esta vez no se le dice
+    nada— y por eso comparten valor de retorno en vez de tres excepciones que
+    el llamador tendría que distinguir para acabar haciendo lo mismo.
+    """
+    if safety.level is not SafetyLevel.GREEN:
+        return None
+
+    vetadas = set(exclude)
+    candidatas = [
+        c
+        for c in load_cues()
+        if c.category == category
+        and level in c.levels
+        and not vetadas.intersection(c.contraindications)
+    ]
+    if not candidatas:
+        return None
+
+    # Si una categoría llegara a tener varias señales, se rota igual que en
+    # `select_cue`: la misma durante `CUE_ROTATION_WEEKS` semanas.
+    bloque = (max(week_index, 1) - 1) // CUE_ROTATION_WEEKS
+    return candidatas[bloque % len(candidatas)]

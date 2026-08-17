@@ -11,6 +11,7 @@ contamina la progresión, y la progresión es el producto.
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import date
 from typing import Annotated, Any
 
 import structlog
@@ -19,7 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.auth import UsuarioActual
 from apps.api.config import get_settings
+from apps.api.db.repo import LogRepo, ProfileRepo
 from apps.api.db.session import get_session
+from apps.api.tools import CoachTools
 from apps.api.vision.anthropic_client import AnthropicVisionClient
 from apps.api.vision.client import (
     MAX_IMAGE_BYTES,
@@ -28,6 +31,7 @@ from apps.api.vision.client import (
     VisionClient,
     VisionError,
 )
+from apps.api.vision.gait import MAX_FRAMES, NoFramesError, analyze_gait, suggest_cue
 from apps.api.vision.workout import (
     ImplausibleExtractionError,
     extract_workout,
@@ -126,4 +130,100 @@ async def leer_captura(
         # Lo dice el endpoint y no el frontend: la regla de que el ritmo sale
         # del motor tiene que viajar con el dato.
         "pace_is_computed": True,
+    }
+
+
+# Molestias en palabras del corredor → contraindicaciones de la biblioteca. La
+# búsqueda es por subcadena y a propósito generosa: marcar de más quita una
+# señal, marcar de menos se la da a quien no debería recibirla.
+_ZONAS: dict[str, tuple[str, ...]] = {
+    "molestia_rodilla": ("rodilla", "knee"),
+    "molestia_lumbar": ("lumbar", "espalda", "cintura", "back"),
+    "molestia_hombro": ("hombro", "shoulder"),
+    "molestia_cervical": ("cuello", "cervical", "neck"),
+}
+
+
+def _contraindicaciones(injuries: Any) -> tuple[str, ...]:
+    if not isinstance(injuries, list):
+        return ()
+    texto = " ".join(str(x) for x in injuries).lower()
+    return tuple(token for token, palabras in _ZONAS.items() if any(p in texto for p in palabras))
+
+
+@router.post("/gait")
+async def analizar_tecnica(
+    cliente: ClienteVision,
+    sesion: Sesion,
+    usuario: UsuarioActual,
+    files: Annotated[list[UploadFile], File()],
+) -> dict[str, Any]:
+    """Mira la zancada en una secuencia de fotogramas. **No guarda nada.**
+
+    Llegan imágenes y no un vídeo: los fotogramas los saca el navegador, así que
+    por la red viajan diez JPEG en vez de quince segundos de vídeo y el clip
+    original se queda en el teléfono.
+
+    Devuelve dos cosas que no se mezclan: los hallazgos, que son descripción del
+    modelo, y la señal, que sale de la biblioteca curada del motor. Y la señal
+    puede venir vacía —con molestia activa no se corrige la zancada, y cuando
+    nada destaca tampoco se inventa una corrección.
+    """
+    user_id = usuario.id
+    if len(files) > MAX_FRAMES:
+        raise HTTPException(413, f"llegaron {len(files)} fotogramas; el máximo es {MAX_FRAMES}")
+
+    fotogramas = [(await _leer_imagen(f), f.content_type or "image/jpeg") for f in files]
+
+    try:
+        hallazgos = await analyze_gait(cliente, fotogramas)
+    except NoFramesError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except AllVisionModelsUnavailableError as exc:
+        # Aquí no hay degradación manual que ofrecer: nadie va a teclear cómo
+        # cae su propio pie. Se dice que ahora no se puede y se deja intacto lo
+        # que sí funciona, que es el resto del producto.
+        log.warning("vision.gait.sin_modelos", user_id=user_id, error=str(exc))
+        return {
+            "ok": False,
+            "reason": "Ahorita no puedo mirar el vídeo. Vuelve a intentarlo en un rato.",
+            "findings": [],
+            "cue": None,
+        }
+    except VisionError as exc:
+        log.warning("vision.gait.fallo", user_id=user_id, error=str(exc))
+        raise HTTPException(502, f"no pude analizar el vídeo: {exc}") from exc
+
+    veredicto = await LogRepo(sesion).current_safety(user_id, date.today())
+    perfil = await ProfileRepo(sesion).context(user_id) or {}
+    semana = await CoachTools(sesion, today=date.today()).get_week_context(user_id)
+
+    cue = suggest_cue(
+        hallazgos,
+        level=str(perfil.get("level") or "principiante"),
+        week_index=int(semana.get("week_index") or 1),
+        safety=veredicto,
+        exclude=_contraindicaciones(perfil.get("injuries")),
+    )
+
+    log.info(
+        "vision.gait.ok",
+        user_id=user_id,
+        fotogramas=len(fotogramas),
+        hallazgos=len(hallazgos),
+        cue=cue.id if cue else None,
+    )
+    return {
+        "ok": True,
+        "findings": [asdict(h) for h in hallazgos],
+        "cue": (
+            None
+            if cue is None
+            else {"id": cue.id, "category": cue.category, "text": cue.voice_text}
+        ),
+        # Por qué no hay señal, cuando no la hay. Sin esto la pantalla no puede
+        # distinguir «se te ve bien» de «hoy no te corrijo porque te duele algo»,
+        # y son mensajes opuestos.
+        "cue_blocked_by_safety": cue is None and veredicto.level.value != "green",
+        "safety": veredicto.level.value,
     }

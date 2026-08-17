@@ -44,6 +44,21 @@ class ProposedSession:
     notes: str = ""
 
 
+@dataclass(frozen=True)
+class GaitFinding:
+    """Una observación de la zancada. **Descripción, nunca prescripción.**
+
+    No hay campo para un consejo y eso es deliberado: la señal que se le dice al
+    corredor sale de la biblioteca curada del motor, no de lo que el modelo
+    quiera redactar. Un consejo de técnica improvisado puede lesionar a alguien,
+    igual que un número inventado.
+    """
+
+    observable: str
+    assessment: str
+    note: str
+
+
 WORKOUT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {

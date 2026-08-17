@@ -36,6 +36,7 @@ import type { Session } from "./components/SessionField";
 import type { Turn } from "./components/Transcript";
 import { useT } from "./i18n";
 import { Auth } from "./screens/Auth";
+import { GaitUpload } from "./screens/GaitUpload";
 import { Landing } from "./screens/Landing";
 import { Main } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
@@ -48,7 +49,7 @@ import {
   transition,
 } from "./state/voiceMachine";
 
-type Pantalla = "cargando" | "portada" | "auth" | "onboarding" | "hoja" | "captura";
+type Pantalla = "cargando" | "portada" | "auth" | "onboarding" | "hoja" | "captura" | "tecnica";
 
 /** Cambia la URL sin recargar. La portada y la aplicación son sitios
  *  distintos y el botón de atrás del navegador tiene que notarlo. */
@@ -363,6 +364,10 @@ export default function App() {
     );
   }
 
+  if (pantalla === "tecnica") {
+    return <GaitUpload onClose={() => setPantalla("hoja")} />;
+  }
+
   return (
     <Main
         /* Con `?estado=…` se pintan los datos de ejemplo, que es para lo que
@@ -391,6 +396,7 @@ export default function App() {
           setSafety("clear");
         }}
       onUpload={() => setPantalla("captura")}
+      onGait={() => setPantalla("tecnica")}
       ttfaMs={ttfa}
       /* Cerrar sesión. Antes esto borraba el UUID del navegador y con él al
          corredor entero; ahora sólo suelta el token y los datos siguen en su
