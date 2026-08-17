@@ -1,12 +1,34 @@
 """Resolución de credenciales de AWS para el cliente de streaming.
 
-El SDK de smithy que usa Nova Sonic **no tiene resolvedor de perfiles**: sólo lee
-variables de entorno o IMDS. Eso obligaría a exportar las credenciales a mano
-antes de arrancar la API, con una sintaxis distinta en bash y en PowerShell.
+El SDK de smithy que usa Nova Sonic **sólo lee variables de entorno**. No tiene
+resolvedor de perfiles, y —esto es lo que costó un despliegue— **tampoco lee
+IMDS**. El ADR 0008 decía que en EC2 el rol de instancia llegaría solo y que
+este módulo no haría falta allí. Era falso, y el error no aparece hasta que
+alguien intenta hablar:
 
-En vez de eso, si las variables no están puestas se le preguntan al AWS CLI, que
-sí entiende perfiles, SSO y roles asumidos. En EC2 no hace falta: el rol de
-instancia llega por IMDS y este módulo no toca nada (ADR 0008).
+    SmithyIdentityError: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required
+
+La API arranca, `/api/health` contesta 200, la pantalla se pinta entera, y la
+voz —que es el producto— no funciona. Lo cazó una prueba que abre un stream de
+verdad contra Bedrock desde la instancia, no el despliegue en sí.
+
+## Cómo se resuelve ahora
+
+Se usa **botocore**, que ya viene con `aioboto3` y sí tiene la cadena completa:
+variables de entorno, perfil, SSO, rol asumido e IMDS. Lo que encuentre se
+exporta al entorno para que smithy lo vea.
+
+Se prueba antes el AWS CLI porque en un portátil con SSO da un mensaje mucho más
+claro cuando la sesión ha caducado; si no está instalado —como en el contenedor—
+se pasa a botocore sin ruido.
+
+## La renovación no es opcional
+
+Las credenciales de un rol de instancia **caducan**, típicamente en unas horas.
+Resolverlas sólo al arrancar significa que la voz funciona toda la tarde y deja
+de funcionar de madrugada, sin que nadie toque nada. Por eso el puente llama a
+`ensure_fresh_credentials()` antes de abrir cada stream, y aquí se renueva
+cuando quedan menos de cinco minutos.
 """
 
 from __future__ import annotations
@@ -15,27 +37,37 @@ import json
 import os
 import shutil
 import subprocess
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
 log = structlog.get_logger(__name__)
 
+# Cuánto margen se deja antes de que caduquen. Cinco minutos cubre de sobra una
+# conversación de voz, que dura minutos y renueva su stream cada ocho.
+MARGEN = timedelta(minutes=5)
 
-def ensure_aws_credentials() -> bool:
-    """Deja `AWS_ACCESS_KEY_ID` y compañía en el entorno. Devuelve si hay credenciales.
+_CADUCAN: datetime | None = None
 
-    No lanza excepción si falla: se registra el motivo y se deja que el error
-    aparezca al abrir el stream, donde el mensaje es más útil.
-    """
-    if os.getenv("AWS_ACCESS_KEY_ID"):
-        log.debug("credentials.already_in_env")
-        return True
 
+def _exportar(clave: str, secreto: str, token: str | None, expira: datetime | None) -> None:
+    global _CADUCAN
+    os.environ["AWS_ACCESS_KEY_ID"] = clave
+    os.environ["AWS_SECRET_ACCESS_KEY"] = secreto
+    if token:
+        os.environ["AWS_SESSION_TOKEN"] = token
+    else:
+        # Unas credenciales permanentes detrás de unas temporales dejarían el
+        # token viejo en el entorno, y AWS rechazaría la combinación.
+        os.environ.pop("AWS_SESSION_TOKEN", None)
+    _CADUCAN = expira
+
+
+def _desde_el_cli() -> bool:
+    """El AWS CLI entiende perfiles y SSO, y explica mejor una sesión caducada."""
     aws = shutil.which("aws")
     if aws is None:
-        log.warning("credentials.no_cli", hint="instala el AWS CLI o exporta las variables")
         return False
-
     try:
         proceso = subprocess.run(
             [aws, "configure", "export-credentials", "--format", "process"],
@@ -52,10 +84,70 @@ def ensure_aws_credentials() -> bool:
         log.warning("credentials.unreadable", error=str(exc))
         return False
 
-    os.environ["AWS_ACCESS_KEY_ID"] = datos["AccessKeyId"]
-    os.environ["AWS_SECRET_ACCESS_KEY"] = datos["SecretAccessKey"]
-    if token := datos.get("SessionToken"):
-        os.environ["AWS_SESSION_TOKEN"] = token
+    expira = None
+    if texto := datos.get("Expiration"):
+        with_suppress = texto.replace("Z", "+00:00")
+        try:
+            expira = datetime.fromisoformat(with_suppress)
+        except ValueError:
+            expira = None
 
-    log.info("credentials.loaded_from_cli", expires=datos.get("Expiration"))
+    _exportar(datos["AccessKeyId"], datos["SecretAccessKey"], datos.get("SessionToken"), expira)
+    log.info("credentials.desde_el_cli", expira=datos.get("Expiration"))
     return True
+
+
+def _desde_botocore() -> bool:
+    """La cadena completa, IMDS incluido. Es la que funciona en el contenedor."""
+    try:
+        import botocore.session
+    except ImportError:  # pragma: no cover - botocore viene con aioboto3
+        log.warning("credentials.sin_botocore")
+        return False
+
+    credenciales = botocore.session.get_session().get_credentials()
+    if credenciales is None:
+        log.warning("credentials.sin_cadena", hint="ni entorno, ni perfil, ni rol de instancia")
+        return False
+
+    congeladas = credenciales.get_frozen_credentials()
+    expira = getattr(credenciales, "_expiry_time", None)
+    if expira is not None and expira.tzinfo is None:
+        expira = expira.replace(tzinfo=UTC)
+
+    _exportar(congeladas.access_key, congeladas.secret_key, congeladas.token, expira)
+    log.info("credentials.desde_botocore", metodo=credenciales.method, expira=str(expira))
+    return True
+
+
+def ensure_aws_credentials() -> bool:
+    """Deja `AWS_ACCESS_KEY_ID` y compañía en el entorno. Devuelve si las hay.
+
+    No lanza si falla: se registra el motivo y se deja que el error aparezca al
+    abrir el stream, donde el mensaje dice mucho más.
+    """
+    if os.getenv("AWS_ACCESS_KEY_ID") and not os.getenv("AWS_SESSION_TOKEN"):
+        # Permanentes puestas a mano: no caducan y no hay nada que renovar.
+        log.debug("credentials.ya_en_el_entorno")
+        return True
+
+    return _desde_el_cli() or _desde_botocore()
+
+
+def ensure_fresh_credentials() -> bool:
+    """Renueva si están a punto de caducar. Se llama antes de abrir un stream.
+
+    Sin esto, la voz funciona hasta que caducan las credenciales del rol y luego
+    deja de funcionar sin que nadie haya tocado nada — de madrugada, y con un
+    error que apunta a Bedrock en vez de a la sesión.
+    """
+    if _CADUCAN is not None and datetime.now(UTC) + MARGEN < _CADUCAN:
+        return True
+    if _CADUCAN is not None:
+        log.info("credentials.renovando", caducaban=str(_CADUCAN))
+    return ensure_aws_credentials()
+
+
+def credentials_expiry() -> datetime | None:
+    """Cuándo caducan las actuales, si son temporales. Para `/api/config`."""
+    return _CADUCAN

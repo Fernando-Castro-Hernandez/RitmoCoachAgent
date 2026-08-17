@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from apps.api.auth_api import router as auth_router
 from apps.api.automation_api import router as automation_router
 from apps.api.config import get_settings
-from apps.api.credentials import ensure_aws_credentials
+from apps.api.credentials import credentials_expiry, ensure_aws_credentials
 from apps.api.debug import router as debug_router
 from apps.api.logging_setup import configure_logging
 from apps.api.profile_api import router as profile_router
@@ -79,9 +79,12 @@ def config() -> dict[str, Any]:
         "voice_id": ajustes.nova_voice_id,
         "vision_model_chain": ajustes.vision_models,
         "prompt_version": PROMPT_VERSION,
-        # Éstas sí son del entorno del proceso: las resuelve el SDK de AWS desde
-        # el perfil o el rol de instancia, no desde `.env`.
-        "aws_credentials_resolved": bool(os.getenv("AWS_ACCESS_KEY_ID")),
+        # Se llaman así y no «aws_ok» porque es literalmente lo que se
+        # comprueba: que estén EN EL ENTORNO. El SDK de smithy que usa Nova
+        # Sonic no lee ni perfiles ni IMDS, así que si esto es falso la voz no
+        # funciona — por muy bien configurado que esté todo lo demás.
+        "aws_credentials_in_env": bool(os.getenv("AWS_ACCESS_KEY_ID")),
+        "aws_credentials_expire_at": (str(caducan) if (caducan := credentials_expiry()) else None),
         "telegram_configured": bool(ajustes.telegram_bot_token and ajustes.telegram_bot_username),
         "telegram_webhook_configured": bool(ajustes.telegram_webhook_secret),
         "automation_configured": bool(ajustes.automation_api_key),

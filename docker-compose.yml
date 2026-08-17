@@ -32,7 +32,7 @@ services:
     build:
       context: .
       dockerfile: infra/Dockerfile.api
-    command: ["uv", "run", "alembic", "upgrade", "head"]
+    command: ["alembic", "upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+psycopg://ritmo:${DB_PASSWORD}@db:5432/ritmo
     depends_on:

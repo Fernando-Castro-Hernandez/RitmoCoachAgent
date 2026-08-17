@@ -8,15 +8,31 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PYTHONPATH=/app/packages:/app
+    PYTHONPATH=/app/packages:/app \
+    # El entorno virtual va primero en el PATH para poder llamar a `uvicorn` y
+    # `alembic` directamente, SIN `uv run`.
+    #
+    # No es cosmético: `uv run` vuelve a sincronizar el entorno en cada
+    # arranque, y con el grupo de desarrollo incluido. El contenedor se
+    # descargaba mypy, ruff, hypothesis y pillow cada vez que arrancaba —
+    # segundos de más, red de más, y un contenedor cuyo contenido depende de
+    # cuándo arrancó en vez de de cuándo se construyó.
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
-# Capa de dependencias: se reconstruye sólo si cambia el manifiesto.
-COPY pyproject.toml ./
-RUN uv sync --no-dev --no-install-project
+# Capa de dependencias: se reconstruye sólo si cambia el manifiesto o el lock.
+#
+# `uv.lock` se copia a propósito. Sin él, `uv sync` resuelve de cero en cada
+# construcción y la imagen puede llevar versiones distintas de las que se
+# probaron aquí — que es exactamente lo que un lockfile existe para impedir.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --no-dev --frozen --no-install-project
 
-# Código de la aplicación.
+# `alembic.ini` vive en la raíz del repositorio y ES parte de la aplicación:
+# sin él, `alembic upgrade head` responde «No 'script_location' key found» y las
+# migraciones no corren. Faltaba, y el servicio `migrate` moría con 255.
+COPY alembic.ini ./
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 COPY scripts/ ./scripts/
@@ -26,4 +42,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')"
 
-CMD ["uv", "run", "uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

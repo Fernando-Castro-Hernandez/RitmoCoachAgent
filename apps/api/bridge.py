@@ -24,6 +24,7 @@ import structlog
 
 from apps.api import protocol
 from apps.api.config import Settings, get_settings
+from apps.api.credentials import ensure_fresh_credentials
 from apps.api.metrics import TurnTimer
 from apps.api.tool_specs import tool_specs
 
@@ -320,6 +321,11 @@ class NovaBridge:
         )
 
     async def _open_stream(self) -> Any:
+        # Las credenciales del rol de instancia caducan en horas, y el SDK de
+        # smithy sólo lee variables de entorno. Sin esto, la voz funciona toda
+        # la tarde y deja de funcionar de madrugada sin que nadie toque nada.
+        ensure_fresh_credentials()
+
         from aws_sdk_bedrock_runtime.client import AsyncBedrockRuntimeClient
         from aws_sdk_bedrock_runtime.config import Config
         from aws_sdk_bedrock_runtime.models import (
