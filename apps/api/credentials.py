@@ -28,7 +28,12 @@ Las credenciales de un rol de instancia **caducan**, típicamente en unas horas.
 Resolverlas sólo al arrancar significa que la voz funciona toda la tarde y deja
 de funcionar de madrugada, sin que nadie toque nada. Por eso el puente llama a
 `ensure_fresh_credentials()` antes de abrir cada stream, y aquí se renueva
-cuando quedan menos de cinco minutos.
+cuando queda menos que `MARGEN`.
+
+Renovar tiene una trampa que costó dieciséis horas de voz caída: como lo
+resuelto se exporta a `os.environ`, y el entorno es lo primero que mira
+botocore, volver a recorrer la cadena devuelve lo que uno mismo escribió. Está
+contado en `_desde_botocore`.
 """
 
 from __future__ import annotations
@@ -43,11 +48,22 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-# Cuánto margen se deja antes de que caduquen. Cinco minutos cubre de sobra una
-# conversación de voz, que dura minutos y renueva su stream cada ocho.
-MARGEN = timedelta(minutes=5)
+# Cuánto margen se deja antes de que caduquen.
+#
+# Tienen que ser MÁS que los ocho minutos que dura un stream: el puente pregunta
+# por las credenciales al abrirlo y no vuelve a preguntar hasta el siguiente, así
+# que con cinco minutos un stream abierto justo antes del corte seguía vivo
+# pasada la caducidad y se moría a mitad de frase. Quince también es la ventana
+# con la que botocore refresca por su cuenta, así que las dos coinciden.
+MARGEN = timedelta(minutes=15)
 
 _CADUCAN: datetime | None = None
+
+# El objeto de credenciales de botocore, resuelto UNA vez y conservado.
+#
+# Conservarlo no es una caché por velocidad: es lo único que hace que la
+# renovación funcione. Ver `_desde_botocore`.
+_CREDENCIALES: object | None = None
 
 
 def _exportar(clave: str, secreto: str, token: str | None, expira: datetime | None) -> None:
@@ -98,14 +114,38 @@ def _desde_el_cli() -> bool:
 
 
 def _desde_botocore() -> bool:
-    """La cadena completa, IMDS incluido. Es la que funciona en el contenedor."""
-    try:
-        import botocore.session
-    except ImportError:  # pragma: no cover - botocore viene con aioboto3
-        log.warning("credentials.sin_botocore")
-        return False
+    """La cadena completa, IMDS incluido. Es la que funciona en el contenedor.
 
-    credenciales = botocore.session.get_session().get_credentials()
+    ## Por qué la cadena se recorre una sola vez
+
+    Porque este módulo escribe en `os.environ`, y **el proveedor de variables de
+    entorno es el primero de la cadena de botocore**. Recorrerla otra vez
+    significa encontrarse con lo que uno mismo dejó escrito la vez anterior.
+
+    Eso fue exactamente lo que pasó en producción. La primera resolución traía
+    las del rol, con su caducidad, y las exportaba. La segunda —seis horas más
+    tarde, cuando tocaba renovar— leía esas mismas variables y las devolvía como
+    `method=env`, ya caducadas y sin fecha de caducidad. Sin fecha, `_CADUCAN`
+    quedaba en `None` y se reintentaba en cada stream, encontrándose siempre a
+    sí mismo. **El rol no se volvió a consultar nunca**, y Bedrock contestó 403
+    `ExpiredTokenException` durante dieciséis horas, en voz y en texto.
+
+    Guardando el objeto, se le pregunta a él. Cuando viene del rol es un
+    `RefreshableCredentials`, y `get_frozen_credentials()` es justo el punto
+    donde botocore va a IMDS a por unas nuevas si hacen falta. La renovación
+    la hace quien sabe hacerla, y aquí sólo se copia el resultado al entorno.
+    """
+    global _CREDENCIALES
+
+    if _CREDENCIALES is None:
+        try:
+            import botocore.session
+        except ImportError:  # pragma: no cover - botocore viene con aioboto3
+            log.warning("credentials.sin_botocore")
+            return False
+        _CREDENCIALES = botocore.session.get_session().get_credentials()
+
+    credenciales = _CREDENCIALES
     if credenciales is None:
         log.warning("credentials.sin_cadena", hint="ni entorno, ni perfil, ni rol de instancia")
         return False
