@@ -1,3 +1,10 @@
+<p align="center">
+  <img src="docs/images/ritmo-splash.jpeg" width="24%" alt="Splash de Ritmo" />
+  <img src="docs/images/ritmo-hero.jpeg" width="24%" alt="Pantalla de bienvenida" />
+  <img src="docs/images/ritmo-sesion.jpeg" width="24%" alt="Sesión de hoy: tirada larga de 18 km" />
+  <img src="docs/images/ritmo-formulario.jpeg" width="24%" alt="Formulario conversacional para armar el plan" />
+</p>
+
 # Ritmo
 
 **Un entrenador de running que habla, que no se inventa los números y que sabe
