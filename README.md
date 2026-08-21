@@ -207,7 +207,6 @@ hacia el lado conservador y está documentado, no escondido.
 | | |
 |---|---|
 | [Contexto de producto](docs/PRODUCT.md) | Para quién es, dónde se usa, qué no se negocia |
-| [Guion de grabación](docs/demo.md) | El recorrido completo en 3:30, escena por escena |
 | [Prompts del sistema](docs/prompts.md) | Las cuatro capas y cómo se verifica cada una |
 | [Brief de diseño](docs/DESIGN.md) | La hoja impresa, el orbe y el código de color |
 | [Decisiones de arquitectura](docs/adr/) | Por qué Nova Sonic, por qué motor, por qué Telegram |
